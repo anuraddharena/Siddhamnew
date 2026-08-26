@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Siddham</title>
+<link rel="icon" href="../assets/logo.jpg">
+<link rel="stylesheet" href="../css/style.css">
+<!-- PDF + QR + Barcode libraries (admin only) -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+</head>
+<body class="admin-body">
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <img src="../assets/logo.jpg" alt="Siddham" class="login-logo">
+    <h2>Admin Login</h2>
+
+    <div id="step1">
+      <label>Password</label>
+      <input type="password" id="pwd" placeholder="Enter admin password">
+      <button id="loginBtn" class="primary-btn">Login</button>
+      <p class="hint">Default password: <b>siddham123</b> (change from Settings after login)</p>
+    </div>
+
+    <div id="step2" style="display:none">
+      <p>OTP sent to <b id="otpTarget">admin</b></p>
+      <label>Enter 6-digit OTP</label>
+      <input type="text" id="otp" maxlength="6" placeholder="______">
+      <p class="hint">Demo OTP: <b id="demoOtp"></b> (in real deployment this is emailed / SMS'd)</p>
+      <button id="verifyBtn" class="primary-btn">Verify OTP</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="dashboard" class="dashboard" style="display:none">
+  <header class="page-header">
+    <a href="../index.html"><img src="../assets/logo.jpg" alt="Siddham" class="header-logo"></a>
+    <div class="header-actions">
+      <span class="visit-tab">👁️ Visits: <b id="visitCount">0</b></span>
+      <button id="logoutBtn" class="lang-btn">Logout</button>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="orders">📦 Orders <span id="pendingBadge" class="badge">0</span></button>
+    <button class="tab-btn" data-tab="products">🌶️ Products</button>
+    <button class="tab-btn" data-tab="categories">🗂️ Categories</button>
+    <button class="tab-btn" data-tab="delivery">🚚 Delivery</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+    <button class="tab-btn" data-tab="stats">📊 Stats</button>
+    <button class="tab-btn" data-tab="branding">🎨 Branding</button>
+  </nav>
+
+  <!-- ORDERS TAB -->
+  <section id="tab-orders" class="tab active">
+    <h2>📦 Orders</h2>
+    <p class="hint">Customer ට invoice දෙන්නේ නෑ. Order confirm උනාට පසුව මෙතන save වෙනවා. Package එකට එකතු කරන්න Invoice PDF එක download කරන්න.</p>
+
+    <div class="grid3">
+      <div>
+        <label>Filter by Status</label>
+        <select id="ordFilter">
+          <option value="all">All</option>
+          <option value="pending" selected>Pending</option>
+          <option value="packed">Packed</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div>
+        <label>Search (name / phone / ID)</label>
+        <input type="text" id="ordSearch" placeholder="Type to filter…">
+      </div>
+      <div>
+        <label>Actions</label>
+        <button id="clearOrdersBtn" class="secondary-btn" style="width:100%">Clear All Orders</button>
+      </div>
+    </div>
+
+    <div id="ordersList" class="orders-list"></div>
+  </section>
+
+  <!-- PRODUCTS TAB -->
+  <section id="tab-products" class="tab">
+    <h2>Manage Products</h2>
+    <form id="addProductForm" class="admin-form">
+      <input type="hidden" id="editId">
+      <div class="grid2">
+        <div>
+          <label>Name (Sinhala)</label>
+          <input type="text" id="pNameSi" required>
+        </div>
+        <div>
+          <label>Name (English)</label>
+          <input type="text" id="pNameEn" required>
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="pCat" required>
+            <option value="spices">Spices</option>
+            <option value="spreads">Spreads</option>
+            <option value="sweetmeats">Sweetmeats</option>
+            <option value="cooking">Cooking Essentials</option>
+            <option value="whole">Whole Spices</option>
+          </select>
+        </div>
+        <div>
+          <label>Price (Rs.)</label>
+          <input type="number" id="pPrice" required min="0" step="1">
+        </div>
+        <div>
+          <label>Unit / Size</label>
+          <input type="text" id="pUnit" placeholder="100g / 250g / 10 pcs">
+        </div>
+        <div>
+          <label>Weight in grams (for delivery calc)</label>
+          <input type="number" id="pWeightG" placeholder="100" min="1">
+        </div>
+        <div>
+          <label>Sold count (green bar එකට)</label>
+          <input type="number" id="pSold" placeholder="0" min="0">
+        </div>
+        <div>
+          <label>Image (upload)</label>
+          <input type="file" id="pImg" accept="image/*">
+        </div>
+      </div>
+      <label>Description</label>
+      <textarea id="pDesc" rows="2"></textarea>
+      <button type="submit" class="primary-btn" id="saveProductBtn">Add Product</button>
+      <button type="button" class="secondary-btn" id="cancelEditBtn" style="display:none">Cancel Edit</button>
+    </form>
+
+    <h3>Existing Products</h3>
+    <div id="adminProductList" class="admin-prod-list"></div>
+  </section>
+
+  <!-- CATEGORIES TAB -->
+  <section id="tab-categories" class="tab">
+    <h2>Manage Categories</h2>
+    <p class="hint">Products පිටුවේ පෙන්වන category list එක මෙතනින් add / edit / delete / reorder කරන්න. Category එකක් අයින් කරන්න එහි products නැත්නම් විතරයි පුළුවන්.</p>
+
+    <form id="catForm" class="admin-form">
+      <input type="hidden" id="catEditId">
+      <div class="grid2">
+        <div>
+          <label>Category Name (Sinhala)</label>
+          <input type="text" id="cNameSi" placeholder="කුළුබඩු" required>
+        </div>
+        <div>
+          <label>Category Name (English)</label>
+          <input type="text" id="cNameEn" placeholder="Spices" required>
+        </div>
+      </div>
+      <button type="submit" class="primary-btn" id="saveCatBtn">Add Category</button>
+      <button type="button" class="secondary-btn" id="cancelCatEditBtn" style="display:none">Cancel Edit</button>
+    </form>
+
+    <div id="catList" class="orders-list"></div>
+  </section>
+
+  <!-- DELIVERY TAB -->
+  <section id="tab-delivery" class="tab">
+    <h2>Delivery Charges</h2>
+    <p class="hint">
+      Upload your CSV. Expected columns (with header):<br>
+      <code>From Branch, To District, To City, Charge for 1st kg, Charge per additional 1kg</code>
+    </p>
+
+    <div class="grid2">
+      <div>
+        <label>CSV File</label>
+        <input type="file" id="csvFile" accept=".csv">
+      </div>
+      <div>
+        <label>Import Mode</label>
+        <select id="csvMode">
+          <option value="replace">Replace all existing rows</option>
+          <option value="append">Add / Update (keep others)</option>
+        </select>
+      </div>
+    </div>
+    <button id="csvBtn" class="primary-btn">Import CSV</button>
+    <button id="csvSample" class="secondary-btn">Download Sample CSV</button>
+
+    <h3>Or add / edit manually:</h3>
+    <div class="grid3">
+      <div><label>From Branch</label><input type="text" id="newBranch" placeholder="Mattegoda"></div>
+      <div><label>To District</label><input type="text" id="newDistrict" placeholder="Colombo"></div>
+      <div><label>To City</label><input type="text" id="newCity" placeholder="Nugegoda"></div>
+      <div><label>Charge 1st kg</label><input type="number" id="newFirst" placeholder="200"></div>
+      <div><label>Additional 1kg</label><input type="number" id="newAdd" placeholder="40"></div>
+    </div>
+    <button id="addDistBtn" class="primary-btn">Add / Update</button>
+
+    <table class="admin-table" id="districtTable">
+      <thead><tr><th>Branch</th><th>District</th><th>City</th><th>1st kg</th><th>Add. 1kg</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section id="tab-settings" class="tab">
+    <h2>Site Settings</h2>
+    <label>Change Password</label>
+    <input type="password" id="newPwd" placeholder="New password (min 6 chars)">
+    <button id="changePwdBtn" class="primary-btn">Update Password</button>
+
+    <h3>Order Delivery</h3>
+    <label>WhatsApp Number (with country code, no + or spaces)</label>
+    <input type="text" id="waNumber" placeholder="94777317208">
+
+    <label>Order Notification Email</label>
+    <input type="email" id="orderEmail" placeholder="siddhamproducts24@gmail.com">
+
+    <label>Facebook Page URL</label>
+    <input type="url" id="facebookUrl" placeholder="https://www.facebook.com/YourPage">
+
+    <label>Instagram Profile URL</label>
+    <input type="url" id="instagramUrl" placeholder="https://www.instagram.com/yourhandle">
+
+    <label>Enable OTP on login?</label>
+    <select id="otpEnabled">
+      <option value="1">Yes</option>
+      <option value="0">No</option>
+    </select>
+
+    <button id="saveSettingsBtn" class="primary-btn">Save Settings</button>
+
+    <h3>Danger Zone</h3>
+    <button id="resetVisits" class="secondary-btn">Reset Visit Counter</button>
+    <button id="clearAll" class="secondary-btn" style="background:#c0392b;color:#fff">Reset All Data</button>
+  </section>
+
+  <!-- STATS TAB -->
+  <section id="tab-stats" class="tab">
+    <h2>Site Statistics</h2>
+    <div class="stat-cards">
+      <div class="stat-card"><h3 id="s1">0</h3><p>Total Visits</p></div>
+      <div class="stat-card"><h3 id="s5">0</h3><p>Today</p></div>
+      <div class="stat-card"><h3 id="s6">0</h3><p>This Week</p></div>
+      <div class="stat-card"><h3 id="s7">0</h3><p>This Month</p></div>
+      <div class="stat-card"><h3 id="s2">0</h3><p>Products</p></div>
+      <div class="stat-card"><h3 id="s3">0</h3><p>Delivery Zones</p></div>
+      <div class="stat-card"><h3 id="s4">-</h3><p>First Visit</p></div>
+      <div class="stat-card"><h3 id="s8">-</h3><p>Avg / Day</p></div>
+    </div>
+
+    <h3>📊 Visitor Calculator</h3>
+    <p class="hint">Custom date range හෝ preset එකකින් visits ගණන් කරන්න.</p>
+    <div class="grid3">
+      <div><label>From Date</label><input type="date" id="vcFrom"></div>
+      <div><label>To Date</label><input type="date" id="vcTo"></div>
+      <div><label>Quick Preset</label>
+        <select id="vcPreset">
+          <option value="">-- Custom --</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last year</option>
+        </select>
+      </div>
+    </div>
+    <button id="vcCalc" class="primary-btn">Calculate</button>
+
+    <div id="vcResult" class="stat-cards" style="margin-top:20px;display:none">
+      <div class="stat-card"><h3 id="vcTotal">0</h3><p>Total Visits</p></div>
+      <div class="stat-card"><h3 id="vcDays">0</h3><p>Days in Range</p></div>
+      <div class="stat-card"><h3 id="vcAvg">0</h3><p>Avg / Day</p></div>
+      <div class="stat-card"><h3 id="vcMax">0</h3><p>Peak Day</p></div>
+    </div>
+  </section>
+
+  <!-- BRANDING TAB -->
+  <section id="tab-branding" class="tab">
+    <h2>Logo &amp; Wording</h2>
+
+    <label>Site Logo (upload)</label>
+    <input type="file" id="logoUp" accept="image/*">
+    <div><img id="logoPrev" src="../assets/logo.jpg" style="max-width:200px;margin:10px 0"></div>
+
+    <label>Hero Image (bottom banner)</label>
+    <input type="file" id="heroUp" accept="image/*">
+    <div><img id="heroPrev" src="../assets/hero.jpg" style="max-width:200px;margin:10px 0"></div>
+
+    <label>Site Title (Sinhala)</label>
+    <input type="text" id="titleSi" value="සිද්ධාම්">
+
+    <label>Site Title (English)</label>
+    <input type="text" id="titleEn" value="SIDDHAM">
+
+    <label>Tagline (Sinhala)</label>
+    <input type="text" id="tagSi" value="මුළුතැන්ගෙයි හදවත">
+
+    <label>Tagline (English)</label>
+    <input type="text" id="tagEn" value="The Heart of Home Cooking">
+
+    <label>Home Description (Sinhala)</label>
+    <textarea id="descSi" rows="3"></textarea>
+
+    <label>Home Description (English)</label>
+    <textarea id="descEn" rows="3"></textarea>
+
+    <button id="saveBrandBtn" class="primary-btn">Save Branding</button>
+  </section>
+</div>
+
+<script src="../js/data.js"></script>
+<script src="../js/invoice.js"></script>
+<script src="../js/admin.js"></script>
+</body>
+</html>
