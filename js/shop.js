@@ -4,6 +4,87 @@
 
 let currentCat = 'all';
 
+/* ---------- Cloud sync for comments & likes (jsonbin.io) ----------
+   Configure in Admin → Settings: commentsBinId + commentsApiKey.
+   Without a key everything stays local (per browser). */
+function socialCfg() {
+  const s = DB.get(DB.keys.settings, {});
+  return {
+    binId: (s.commentsBinId || '').trim(),
+    key: (s.commentsApiKey || '').trim(),
+    base: (s.jsonBinBase || 'https://api.jsonbin.io/v3').replace(/\/+$/, '')
+  };
+}
+function socialRemote() {
+  const c = socialCfg();
+  if (!c.binId || !c.key || typeof fetch !== 'function') return null;
+  return {
+    get: () => fetch(`${c.base}/b/${c.binId}/latest`, { headers: { 'X-Master-Key': c.key } })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => (j && (j.record || j)) || null),
+    put: doc => fetch(`${c.base}/b/${c.binId}`, {
+      method: 'PUT',
+      headers: { 'X-Master-Key': c.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(doc)
+    }).then(r => r.ok)
+  };
+}
+function socialDoc() {
+  return { comments: DB.get(DB.keys.comments, {}), votes: DB.get(DB.keys.votes, {}) };
+}
+/* Merge a remote doc into local storage; returns true if anything changed */
+function mergeSocialDoc(remote) {
+  let changed = false;
+  const rComments = remote.comments || {};
+  const all = DB.get(DB.keys.comments, {});
+  Object.keys(rComments).forEach(pid => {
+    const cur = all[pid] || [];
+    const seen = new Set(cur.map(c => c.ts + '|' + c.text));
+    rComments[pid].forEach(c => {
+      if (!c || !c.text) return;
+      const sig = (c.ts || '') + '|' + c.text;
+      if (!seen.has(sig)) { cur.push(c); seen.add(sig); changed = true; }
+    });
+    if (cur.length) all[pid] = cur;
+  });
+  if (changed) DB.set(DB.keys.comments, all);
+
+  const rVotes = remote.votes || {};
+  const lv = DB.get(DB.keys.votes, {});
+  let vChanged = false;
+  Object.keys(rVotes).forEach(pid => {
+    if (!lv[pid]) { lv[pid] = rVotes[pid]; vChanged = true; }
+  });
+  if (vChanged) DB.set(DB.keys.votes, lv);
+  return changed || vChanged;
+}
+let socialPushTimer = null;
+function pushSocial() {
+  const r = socialRemote();
+  if (!r) return;
+  r.put(socialDoc()).catch(() => {});
+}
+function schedulePush() {
+  clearTimeout(socialPushTimer);
+  socialPushTimer = setTimeout(pushSocial, 900);
+}
+/* On load: pull remote, merge, re-render, push merged back */
+function syncSocial() {
+  const r = socialRemote();
+  if (!r) return Promise.resolve();
+  return r.get()
+    .then(remote => {
+      let changed = false;
+      if (remote) changed = mergeSocialDoc(remote);
+      // push merged doc (also creates the bin record on first run)
+      pushSocial();
+      if (changed) {
+        try { renderCatNav(); renderProducts(); renderCart(); } catch (e) {}
+      }
+    })
+    .catch(() => {});
+}
+
 // per-product selected qty (not yet added to cart)
 const selectedQty = {};
 
@@ -174,6 +255,7 @@ function wireItemSocial(card, pid) {
       document.getElementById('dislike-n-' + pid).textContent = v.dislikes;
       card.querySelectorAll('.vote-btn').forEach(x => x.classList.remove('on'));
       if (v.my) card.querySelector(`.vote-btn[data-vote="${v.my}"]`).classList.add('on');
+      schedulePush();
     });
   });
 
@@ -218,6 +300,7 @@ function wireItemSocial(card, pid) {
       </div>`).join('');
     const cl = card.querySelector('.ct-label');
     if (cl) cl.textContent = `${lang === 'si' ? 'සියලු අදහස්' : 'All comments'} (${cmts.length})`;
+    schedulePush();
   });
 }
 
@@ -524,6 +607,12 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCatNav();
   renderProducts();
   renderCart();
+  syncSocial(); // pull comments/likes from cloud (if configured)
+
+  // Data.json sync finished → re-render with fresh data
+  if (typeof onDataSync === 'function') {
+    onDataSync(() => { renderCatNav(); renderProducts(); renderCart(); });
+  }
 
   // Re-render everything when the language is switched (main.js handler runs first)
   const lb = document.getElementById('langBtn');

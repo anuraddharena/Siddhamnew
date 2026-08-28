@@ -156,6 +156,10 @@ const DEFAULT_SETTINGS = {
   otpEnabled: 1,
   facebookUrl: 'https://www.facebook.com/',
   instagramUrl: 'https://www.instagram.com/',
+  /* Cloud sync for comments & likes (jsonbin.io) — leave empty to stay local-only */
+  commentsBinId: '',
+  commentsApiKey: '',
+  jsonBinBase: '',
 };
 
 /* Cart weight helpers — auto calculate kg from cart contents */
@@ -268,3 +272,55 @@ function bumpVisit() {
   DB.set(DB.keys.visitsByDay, byDay);
 }
 bumpVisit();
+
+/* ============================================================
+   data/site-data.json sync (GitHub "publish" file)
+   ------------------------------------------------------------
+   - If a data/site-data.json exists next to the site, its data
+     overrides the code defaults (applied once per version).
+   - Admin → Settings → "Download data.json" creates this file;
+     upload it to the GitHub repo to publish news/changes to all
+     visitors. Old localStorage data is kept unless version changes.
+   ============================================================ */
+const DATA_FILE_VERSION_KEY = 'siddham_data_version';
+
+const dataSyncCbs = [];
+let dataSynced = false;
+function onDataSync(fn) {
+  if (dataSynced) { try { fn(); } catch (e) {} }
+  else dataSyncCbs.push(fn);
+}
+function fireDataSync() {
+  dataSynced = true;
+  dataSyncCbs.splice(0).forEach(fn => { try { fn(); } catch (e) {} });
+}
+function getDataFileUrl() {
+  return (window.ASSET_BASE || '') + 'data/site-data.json';
+}
+function syncFromDataJson() {
+  if (typeof fetch !== 'function') { fireDataSync(); return; }
+  fetch(getDataFileUrl())
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null)
+    .then(j => {
+      if (j && typeof j === 'object') {
+        const ver = j.version || 1;
+        const cur = DB.get(DATA_FILE_VERSION_KEY, null);
+        if (cur === null || cur !== ver) {
+          if (Array.isArray(j.products) && j.products.length) DB.set(DB.keys.products, j.products);
+          if (Array.isArray(j.categories) && j.categories.length) DB.set(DB.keys.categories, j.categories);
+          if (Array.isArray(j.districts) && j.districts.length) DB.set(DB.keys.districts, j.districts);
+          if (j.settings) {
+            const local = DB.get(DB.keys.settings, {});
+            const merged = Object.assign({}, DEFAULT_SETTINGS, j.settings);
+            if (local.password) merged.password = local.password; // never override password from file
+            DB.set(DB.keys.settings, merged);
+          }
+          if (j.branding) DB.set(DB.keys.branding, Object.assign({}, DEFAULT_BRANDING, j.branding));
+          DB.set(DATA_FILE_VERSION_KEY, ver);
+        }
+      }
+    })
+    .finally(fireDataSync);
+}
+syncFromDataJson();

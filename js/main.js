@@ -46,19 +46,8 @@ function updateCartCount() {
   document.querySelectorAll('#cartCount').forEach(el => el.textContent = n);
 }
 
-// ---------- Boot ----------
-document.addEventListener('DOMContentLoaded', () => {
-  applyBranding();
-  applyLang();
-  updateCartCount();
-
-  const lb = document.getElementById('langBtn');
-  if (lb) lb.addEventListener('click', toggleLang);
-
-  const y = document.getElementById('year');
-  if (y) y.textContent = new Date().getFullYear();
-
-  // Update footer contact links from settings
+// ---------- Footer contact links from settings ----------
+function applyContact() {
   const s = DB.get(DB.keys.settings, {});
   const fp = document.getElementById('footPhone');
   const fe = document.getElementById('footEmail');
@@ -68,4 +57,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fe && s.orderEmail) { fe.textContent = s.orderEmail; fe.href = 'mailto:' + s.orderEmail; }
   if (ffb && s.facebookUrl) { ffb.href = s.facebookUrl; }
   if (fig && s.instagramUrl) { fig.href = s.instagramUrl; }
+}
+
+// Re-apply branding/contact after data.json sync lands
+if (typeof onDataSync === 'function') {
+  onDataSync(() => { applyBranding(); applyLang(); applyContact(); updateCartCount(); });
+}
+
+// ---------- Boot ----------
+document.addEventListener('DOMContentLoaded', () => {
+  applyBranding();
+  applyLang();
+  updateCartCount();
+  applyContact();
+
+  const lb = document.getElementById('langBtn');
+  if (lb) lb.addEventListener('click', toggleLang);
+
+  const y = document.getElementById('year');
+  if (y) y.textContent = new Date().getFullYear();
 });

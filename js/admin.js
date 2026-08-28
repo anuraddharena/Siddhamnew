@@ -32,10 +32,27 @@ function isLoggedIn() {
   return true;
 }
 
+let adminLoaded = false;
 function showDashboard() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
+  adminLoaded = false;
   loadAdminUI();
+  adminLoaded = true;
+}
+/* Re-load lists only (no duplicate event listeners) when data.json sync lands */
+function refreshAdminData() {
+  loadStats();
+  loadOrders();
+  loadCategories();
+  fillCatSelect();
+  loadProducts();
+  loadDistricts();
+  loadSettings();
+  loadBranding();
+}
+if (typeof onDataSync === 'function') {
+  onDataSync(() => { if (adminLoaded) refreshAdminData(); });
 }
 
 function showLogin() {
@@ -464,6 +481,33 @@ function loadSettings() {
   document.getElementById('facebookUrl').value = s.facebookUrl || '';
   document.getElementById('instagramUrl').value = s.instagramUrl || '';
   document.getElementById('otpEnabled').value = s.otpEnabled ? '1' : '0';
+  document.getElementById('commentsBinId').value = s.commentsBinId || '';
+  document.getElementById('commentsApiKey').value = s.commentsApiKey || '';
+}
+
+/* Build the data.json object for publishing (password is NEVER exported) */
+function exportDataJson() {
+  const s = DB.get(DB.keys.settings, {});
+  const pub = Object.assign({}, s);
+  delete pub.password;
+  return {
+    version: Date.now(),
+    exportedAt: new Date().toISOString(),
+    products: DB.get(DB.keys.products, []),
+    categories: getCategories(),
+    districts: DB.get(DB.keys.districts, []),
+    settings: pub,
+    branding: DB.get(DB.keys.branding, {})
+  };
+}
+function downloadDataJson() {
+  const j = exportDataJson();
+  const blob = new Blob([JSON.stringify(j, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'site-data.json';
+  a.click();
+  alert('✓ Downloaded!\n\nGitHub repo → data/site-data.json replace කරන්න. ඊට පස්සේ site එකේ හැම කෙනෙක්ටම අලුත් data පේනවා.');
 }
 
 /* ---------- BRANDING ---------- */
@@ -649,9 +693,13 @@ function wireForms() {
     s.facebookUrl = document.getElementById('facebookUrl').value.trim();
     s.instagramUrl = document.getElementById('instagramUrl').value.trim();
     s.otpEnabled = parseInt(document.getElementById('otpEnabled').value);
+    s.commentsBinId = document.getElementById('commentsBinId').value.trim();
+    s.commentsApiKey = document.getElementById('commentsApiKey').value.trim();
     DB.set(DB.keys.settings, s);
     alert('Settings saved');
   });
+
+  document.getElementById('exportJsonBtn').addEventListener('click', downloadDataJson);
 
   // Orders tab
   document.getElementById('ordFilter').addEventListener('change', loadOrders);
