@@ -1,6 +1,6 @@
 {
-  "version": 1787905619953,
-  "exportedAt": "2026-08-28T08:26:59.953Z",
+  "version": 2,
+  "exportedAt": "2026-08-28T08:47:51.134Z",
   "products": [
     {
       "id": 1,
@@ -12,7 +12,8 @@
       "weightG": 100,
       "img": "",
       "desc": "Pure Sri Lankan turmeric",
-      "sold": 42
+      "sold": 42,
+      "stock": 40
     },
     {
       "id": 2,
@@ -24,7 +25,8 @@
       "weightG": 100,
       "img": "",
       "desc": "Roasted red chilli powder",
-      "sold": 35
+      "sold": 35,
+      "stock": 35
     },
     {
       "id": 3,
@@ -36,7 +38,8 @@
       "weightG": 100,
       "img": "",
       "desc": "Roasted curry powder",
-      "sold": 28
+      "sold": 28,
+      "stock": 25
     },
     {
       "id": 4,
@@ -48,7 +51,8 @@
       "weightG": 50,
       "img": "",
       "desc": "Freshly ground pepper",
-      "sold": 31
+      "sold": 31,
+      "stock": 30
     },
     {
       "id": 5,
@@ -60,7 +64,8 @@
       "weightG": 200,
       "img": "",
       "desc": "Traditional pol sambol",
-      "sold": 18
+      "sold": 18,
+      "stock": 20
     },
     {
       "id": 6,
@@ -72,7 +77,8 @@
       "weightG": 200,
       "img": "",
       "desc": "Spicy karawala sambol",
-      "sold": 12
+      "sold": 12,
+      "stock": 12
     },
     {
       "id": 7,
@@ -84,7 +90,8 @@
       "weightG": 200,
       "img": "",
       "desc": "Lunu miris paste",
-      "sold": 15
+      "sold": 15,
+      "stock": 16
     },
     {
       "id": 8,
@@ -96,7 +103,8 @@
       "weightG": 250,
       "img": "",
       "desc": "Traditional oil cakes",
-      "sold": 26
+      "sold": 26,
+      "stock": 28
     },
     {
       "id": 9,
@@ -108,7 +116,8 @@
       "weightG": 250,
       "img": "",
       "desc": "Crispy kokis",
-      "sold": 22
+      "sold": 22,
+      "stock": 22
     },
     {
       "id": 10,
@@ -120,7 +129,8 @@
       "weightG": 250,
       "img": "",
       "desc": "Semolina aluwa",
-      "sold": 19
+      "sold": 19,
+      "stock": 19
     },
     {
       "id": 11,
@@ -132,7 +142,8 @@
       "weightG": 300,
       "img": "",
       "desc": "Green gram sweets",
-      "sold": 16
+      "sold": 16,
+      "stock": 14
     },
     {
       "id": 12,
@@ -144,7 +155,8 @@
       "weightG": 750,
       "img": "",
       "desc": "Pure virgin coconut oil",
-      "sold": 24
+      "sold": 24,
+      "stock": 24
     },
     {
       "id": 13,
@@ -156,7 +168,8 @@
       "weightG": 1000,
       "img": "",
       "desc": "Kekulu rice",
-      "sold": 20
+      "sold": 20,
+      "stock": 30
     },
     {
       "id": 14,
@@ -168,7 +181,8 @@
       "weightG": 500,
       "img": "",
       "desc": "Finger millet flour",
-      "sold": 14
+      "sold": 14,
+      "stock": 18
     },
     {
       "id": 15,
@@ -180,7 +194,8 @@
       "weightG": 100,
       "img": "",
       "desc": "Pure Ceylon cinnamon",
-      "sold": 38
+      "sold": 38,
+      "stock": 38
     },
     {
       "id": 16,
@@ -192,7 +207,8 @@
       "weightG": 100,
       "img": "",
       "desc": "Whole black pepper",
-      "sold": 29
+      "sold": 29,
+      "stock": 26
     },
     {
       "id": 17,
@@ -204,7 +220,8 @@
       "weightG": 50,
       "img": "",
       "desc": "Aromatic cloves",
-      "sold": 21
+      "sold": 21,
+      "stock": 0
     },
     {
       "id": 18,
@@ -216,7 +233,8 @@
       "weightG": 50,
       "img": "",
       "desc": "Green cardamom pods",
-      "sold": 17
+      "sold": 17,
+      "stock": 15
     }
   ],
   "categories": [
@@ -499,8 +517,8 @@
     "otpEnabled": 1,
     "facebookUrl": "https://www.facebook.com/",
     "instagramUrl": "https://www.instagram.com/",
-    "commentsBinId": "6a914302da38895dfe1b5f4e",
-    "commentsApiKey": "$2a$10$Yf1t11.8bwSvwzPfPycT5.WRStGa1sm8nb2kn6T6TMyB2Y/JoUUL.",
+    "commentsBinId": "",
+    "commentsApiKey": "",
     "jsonBinBase": ""
   },
   "branding": {
