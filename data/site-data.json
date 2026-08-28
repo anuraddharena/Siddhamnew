@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "exportedAt": "2026-08-28T07:44:23.204Z",
+  "version": 1787905619953,
+  "exportedAt": "2026-08-28T08:26:59.953Z",
   "products": [
     {
       "id": 1,
@@ -499,8 +499,8 @@
     "otpEnabled": 1,
     "facebookUrl": "https://www.facebook.com/",
     "instagramUrl": "https://www.instagram.com/",
-    "commentsBinId": "",
-    "commentsApiKey": "",
+    "commentsBinId": "6a914302da38895dfe1b5f4e",
+    "commentsApiKey": "$2a$10$Yf1t11.8bwSvwzPfPycT5.WRStGa1sm8nb2kn6T6TMyB2Y/JoUUL.",
     "jsonBinBase": ""
   },
   "branding": {
