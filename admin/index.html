@@ -110,17 +110,11 @@
             <option value="whole">Whole Spices</option>
           </select>
         </div>
-        <div>
-          <label>Price (Rs.)</label>
-          <input type="number" id="pPrice" required min="0" step="1">
-        </div>
-        <div>
-          <label>Unit / Size</label>
-          <input type="text" id="pUnit" placeholder="100g / 250g / 10 pcs">
-        </div>
-        <div>
-          <label>Weight in grams (for delivery calc)</label>
-          <input type="number" id="pWeightG" placeholder="100" min="1">
+        <div style="grid-column:1/-1">
+          <label>📏 Sizes &amp; Prices (100g / 200g / 500g ...)</label>
+          <div id="varRows"></div>
+          <button type="button" id="addVarRow" class="secondary-btn" style="margin-top:8px">+ Add Size</button>
+          <p class="hint" style="margin-top:6px">එක item එකකට ප්‍රමාණ කිහිපයක් දාන්න පුළුවන් (100g, 200g, 500g...). Customer ට ඒ ඒ ප්‍රමාණය tick කරන්න පුළුවන්. එක ප්‍රමාණයක් විතරක් නම් row එකක් තියන්න.</p>
         </div>
         <div>
           <label>Sold count (green bar එකට)</label>
