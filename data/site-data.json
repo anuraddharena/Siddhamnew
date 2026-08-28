@@ -1,6 +1,6 @@
 {
-  "version": 1787931789853,
-  "exportedAt": "2026-08-28T15:43:09.853Z",
+  "version": 1787933127092,
+  "exportedAt": "2026-08-28T16:05:27.092Z",
   "products": [
     {
       "id": 1,
@@ -175,7 +175,7 @@
       "id": 21,
       "nameSi": "වැලි තලප",
       "nameEn": "Wali thalapa",
-      "cat": "spices",
+      "cat": "sweetmeats",
       "price": 80,
       "unit": "1Pcs",
       "weightG": 50,
@@ -210,6 +210,11 @@
       "id": "whole",
       "nameSi": "සම්පූර්ණ කුළුබඩු",
       "nameEn": "Whole Spices"
+    },
+    {
+      "id": "paste",
+      "nameSi": "Paste",
+      "nameEn": "Paste"
     }
   ],
   "districts": [
