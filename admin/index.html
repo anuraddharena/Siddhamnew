@@ -231,7 +231,18 @@
       <option value="0">No</option>
     </select>
 
+    <h3>💬 Comments / Likes Cloud Sync (jsonbin.io)</h3>
+    <p class="hint">ඔක්කොම අයගේ comments &amp; likes එකට පේන්න මේකයි. <b>jsonbin.io</b> එකේ free account එකක් හදලා Bin එකක් create කරලා (Private), ඒ Bin එකේ <b>Access Key</b> එකක් හදලා (Master Key එක <u>නෙවෙයි!</u>) Bin ID එකයි key එකයි මෙතන දාන්න. ඊට පස්සේ "Download data.json" එකෙන් GitHub එකට දාන්න — එතකොට හැම කෙනෙක්ගේම comments එකට පේනවා. හිස්ව තැබුවොත් comments/localStorage එකේම විතරයි.</p>
+    <label>JSONBin Bin ID</label>
+    <input type="text" id="commentsBinId" placeholder="e.g. 65a1b2c3d4e5f67890123456">
+    <label>JSONBin Access API Key</label>
+    <input type="text" id="commentsApiKey" placeholder="paste $2a$10$... access key">
+
     <button id="saveSettingsBtn" class="primary-btn">Save Settings</button>
+
+    <h3>🌐 Publish to GitHub (data.json)</h3>
+    <p class="hint">දැන් තියෙන products / categories / delivery / settings ටික <code>site-data.json</code> එකක් විදිහට download කරලා GitHub repo එකේ <code>data/site-data.json</code> එක replace කරන්න. ඊට පස්සේ site එක බලන හැම කෙනෙක්ටම අලුත් data ලැබේවි.</p>
+    <button id="exportJsonBtn" class="primary-btn">⬇️ Download data.json</button>
 
     <h3>Danger Zone</h3>
     <button id="resetVisits" class="secondary-btn">Reset Visit Counter</button>
