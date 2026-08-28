@@ -260,7 +260,7 @@ function loadOrders() {
           <p><b>📅 ${d.toLocaleString()}</b></p>
           <p><b>Items (${o.items.length}):</b></p>
           <ul class="ord-items">
-            ${o.items.map(it => `<li>${it.name} × ${it.qty} — Rs. ${it.total.toLocaleString()}</li>`).join('')}
+            ${o.items.map(it => `<li>${it.name}${it.unit ? ` (${it.unit})` : ''} × ${it.qty} — Rs. ${it.total.toLocaleString()}</li>`).join('')}
           </ul>
         </div>
       </div>
@@ -403,7 +403,7 @@ function loadProducts() {
       <img src="${p.img || PLACEHOLDER}" onerror="this.src=PLACEHOLDER">
       <div style="flex:1">
         <b>${p.nameSi}</b> / ${p.nameEn}<br>
-        <small>${catName(p.cat, 'si')} • ${p.unit || ''}</small><br>
+        <small>${catName(p.cat, 'si')} • ${(p.variants && p.variants.length > 1) ? p.variants.length + ' sizes' : (p.unit || '')}</small><br>
         <span style="color:#a5811a;font-weight:bold">Rs. ${p.price}</span>
         <small style="color:#27ae60;font-weight:700">🟢 Sold: ${p.sold || 0}</small>
         <small style="color:${(p.stock === 0) ? '#c0392b' : '#1e8449'};font-weight:700;margin-left:8px">
@@ -428,9 +428,7 @@ function editProduct(id) {
   document.getElementById('pNameSi').value = p.nameSi;
   document.getElementById('pNameEn').value = p.nameEn;
   document.getElementById('pCat').value = p.cat;
-  document.getElementById('pPrice').value = p.price;
-  document.getElementById('pUnit').value = p.unit || '';
-  document.getElementById('pWeightG').value = p.weightG || '';
+  setVarRows(productVariants(p));
   document.getElementById('pSold').value = p.sold || 0;
   document.getElementById('pStock').value = (p.stock === undefined) ? 50 : p.stock;
   document.getElementById('pDesc').value = p.desc || '';
@@ -455,6 +453,30 @@ function fileToDataURL(file) {
     r.onerror = rej;
     r.readAsDataURL(file);
   });
+}
+
+/* ---------- SIZE VARIANTS editor ---------- */
+function varRowHTML(label, price, weight) {
+  return `<div class="var-row-admin">
+    <input type="text" class="v-label" placeholder="100g" value="${label || ''}" required>
+    <input type="number" class="v-price" placeholder="Rs." value="${price !== undefined && price !== null ? price : ''}" required min="0">
+    <input type="number" class="v-weight" placeholder="Weight g" value="${weight !== undefined && weight !== null ? weight : ''}" required min="1">
+    <button type="button" class="v-rm" title="Remove">✕</button>
+  </div>`;
+}
+function setVarRows(rows) {
+  const box = document.getElementById('varRows');
+  box.innerHTML = rows.length ? rows.map(r => varRowHTML(r.label, r.price, r.weightG)).join('') : varRowHTML('', '', '');
+}
+function collectVarRows() {
+  const rows = [];
+  document.querySelectorAll('#varRows .var-row-admin').forEach(r => {
+    const label = r.querySelector('.v-label').value.trim();
+    const price = parseInt(r.querySelector('.v-price').value);
+    const weight = parseInt(r.querySelector('.v-weight').value);
+    if (label && !isNaN(price) && !isNaN(weight)) rows.push({ label, price, weightG: weight });
+  });
+  return rows;
 }
 
 /* ---------- DELIVERY RATES (new structure) ---------- */
@@ -533,6 +555,9 @@ function loadBranding() {
 
 /* ---------- WIRE FORMS ---------- */
 function wireForms() {
+  // Start the size editor with one empty row
+  setVarRows([{}]);
+
   // Add / update product
   document.getElementById('addProductForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -542,20 +567,24 @@ function wireForms() {
     let img = '';
     if (file) img = await fileToDataURL(file);
 
-    const weightG = parseInt(document.getElementById('pWeightG').value) || 100;
+    const variants = collectVarRows();
+    if (!variants.length) { alert('අවම වශයෙන් එක size එකක්වත් දාන්න (label + price + weight)'); return; }
     const sold = Math.max(0, parseInt(document.getElementById('pSold').value) || 0);
     let stock = parseInt(document.getElementById('pStock').value);
     if (isNaN(stock)) stock = 50;
     stock = Math.max(0, stock);
+    // keep primary fields = first variant (legacy compat)
+    const primary = variants[0];
     if (id) {
       const p = products.find(x => x.id === parseInt(id));
       Object.assign(p, {
         nameSi: document.getElementById('pNameSi').value,
         nameEn: document.getElementById('pNameEn').value,
         cat: document.getElementById('pCat').value,
-        price: parseInt(document.getElementById('pPrice').value),
-        unit: document.getElementById('pUnit').value,
-        weightG,
+        variants,
+        price: primary.price,
+        unit: primary.label,
+        weightG: primary.weightG,
         sold,
         stock,
         desc: document.getElementById('pDesc').value,
@@ -568,9 +597,10 @@ function wireForms() {
         nameSi: document.getElementById('pNameSi').value,
         nameEn: document.getElementById('pNameEn').value,
         cat: document.getElementById('pCat').value,
-        price: parseInt(document.getElementById('pPrice').value),
-        unit: document.getElementById('pUnit').value,
-        weightG,
+        variants,
+        price: primary.price,
+        unit: primary.label,
+        weightG: primary.weightG,
         sold,
         stock,
         desc: document.getElementById('pDesc').value,
@@ -579,6 +609,7 @@ function wireForms() {
     }
     DB.set(DB.keys.products, products);
     e.target.reset();
+    setVarRows([{}]);
     document.getElementById('editId').value = '';
     document.getElementById('saveProductBtn').textContent = 'Add Product';
     document.getElementById('cancelEditBtn').style.display = 'none';
@@ -589,9 +620,23 @@ function wireForms() {
 
   document.getElementById('cancelEditBtn').addEventListener('click', () => {
     document.getElementById('addProductForm').reset();
+    setVarRows([{}]);
     document.getElementById('editId').value = '';
     document.getElementById('saveProductBtn').textContent = 'Add Product';
     document.getElementById('cancelEditBtn').style.display = 'none';
+  });
+
+  // Size variant rows: add + remove
+  document.getElementById('addVarRow').addEventListener('click', () => {
+    const box = document.getElementById('varRows');
+    box.insertAdjacentHTML('beforeend', varRowHTML('', '', ''));
+  });
+  document.getElementById('varRows').addEventListener('click', e => {
+    const rm = e.target.closest('.v-rm');
+    if (!rm) return;
+    const rows = document.querySelectorAll('#varRows .var-row-admin');
+    if (rows.length <= 1) { rm.closest('.var-row-admin').querySelectorAll('input').forEach(i => i.value = ''); return; }
+    rm.closest('.var-row-admin').remove();
   });
 
   // Add / update category

@@ -95,6 +95,8 @@ function syncSocial() {
 
 // per-product selected qty (not yet added to cart)
 const selectedQty = {};
+// per-product selected size variant index
+const selVar = {};
 
 /* Build the category filter bar from admin-managed list */
 function renderCatNav() {
@@ -222,6 +224,10 @@ function renderProducts() {
     const img = p.img || PLACEHOLDER;
     const stock = (p.stock === undefined) ? 50 : p.stock;
     const oos = stock === 0;
+    const vs = productVariants(p);
+    if (!(p.id in selVar) || selVar[p.id] >= vs.length) selVar[p.id] = 0;
+    const sel = selVar[p.id];
+    const v0 = vs[sel] || vs[0];
     const card = document.createElement('div');
     card.className = 'product-card' + (oos ? ' oos-card' : '');
     card.innerHTML = `
@@ -231,13 +237,20 @@ function renderProducts() {
       </div>
       <div class="product-info">
         <h3>${name}</h3>
-        <div class="unit">${p.unit || ''}</div>
+        <div class="unit">${vs.length > 1 ? (lang === 'si' ? '✓ ප්‍රමාණය තෝරන්න' : '✓ Select a size') : (p.unit || '')}</div>
         <div class="stock-chip ${oos ? 'out' : 'in'}">
           ${oos
             ? `✕ ${lang === 'si' ? 'තොගය අවසන්' : 'Out of Stock'}`
             : `✓ ${lang === 'si' ? `තොගයේ ඇත (${stock})` : `In Stock (${stock})`}`}
         </div>
-        <div class="price">Rs. ${p.price}</div>
+        ${vs.length > 1 ? `
+        <div class="var-row" id="var-row-${p.id}">
+          ${vs.map((v, i) => `
+            <button type="button" class="var-btn${i === sel ? ' active' : ''}" data-id="${p.id}" data-idx="${i}">
+              <span class="v-tick">${i === sel ? '✓' : ''}</span>${v.label} · ${v.price}
+            </button>`).join('')}
+        </div>` : ''}
+        <div class="price" id="price-${p.id}">Rs. ${v0.price}</div>
         <div class="qty-select">
           <button type="button" class="qty-btn" data-act="dec" data-id="${p.id}">−</button>
           <span class="qty-num" id="qty-${p.id}">${selectedQty[p.id]}</span>
@@ -252,6 +265,25 @@ function renderProducts() {
       </div>`;
     grid.appendChild(card);
     wireItemSocial(card, p.id);
+  });
+
+  // Size variant tick buttons
+  grid.querySelectorAll('.var-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const id = parseInt(b.dataset.id);
+      const idx = parseInt(b.dataset.idx);
+      selVar[id] = idx;
+      const card = b.closest('.product-card');
+      card.querySelectorAll('.var-btn').forEach(x => {
+        const on = parseInt(x.dataset.idx) === idx;
+        x.classList.toggle('active', on);
+        x.querySelector('.v-tick').textContent = on ? '✓' : '';
+      });
+      const vs = productVariants((DB.get(DB.keys.products, [])).find(x => x.id === id));
+      const v = vs[idx] || vs[0];
+      const pe = document.getElementById('price-' + id);
+      if (pe) pe.textContent = 'Rs. ' + v.price;
+    });
   });
   grid.querySelectorAll('.qty-btn').forEach(b => {
     b.addEventListener('click', () => {
@@ -347,10 +379,11 @@ function addToCart(id) {
     return;
   }
   const qty = selectedQty[id] || 1;
+  const varIdx = selVar[id] || 0;
   const cart = DB.get(DB.keys.cart, []);
-  const existing = cart.find(i => i.id === id);
+  const existing = cart.find(i => i.id === id && (i.varIdx || 0) === varIdx);
   if (existing) existing.qty += qty;
-  else cart.push({ id, qty });
+  else cart.push({ id, qty, varIdx });
   DB.set(DB.keys.cart, cart);
   updateCartCount();
   // reset local qty back to 1
@@ -359,24 +392,26 @@ function addToCart(id) {
   if (el) el.textContent = 1;
   // toast feedback — DO NOT open cart drawer
   const lang = DB.get(DB.keys.lang, 'si');
-  showToast(lang === 'si' ? `✓ කරත්තයට එකතු කලා (${qty})` : `✓ Added to cart (${qty})`);
+  const vs = productVariants(prod);
+  const v = vs[varIdx] || vs[0];
+  showToast(lang === 'si' ? `✓ ${v.label} කරත්තයට එකතු කලා (${qty})` : `✓ ${v.label} added to cart (${qty})`);
   renderCart(); // keep cart contents fresh in the background
 }
 
-function removeFromCart(id) {
+function removeFromCart(id, varIdx) {
   let cart = DB.get(DB.keys.cart, []);
-  cart = cart.filter(i => i.id !== id);
+  cart = cart.filter(i => !(i.id === id && (i.varIdx || 0) === (varIdx || 0)));
   DB.set(DB.keys.cart, cart);
   updateCartCount();
   renderCart();
 }
 
-function changeQty(id, delta) {
+function changeQty(id, delta, varIdx) {
   const cart = DB.get(DB.keys.cart, []);
-  const it = cart.find(i => i.id === id);
+  const it = cart.find(i => i.id === id && (i.varIdx || 0) === (varIdx || 0));
   if (!it) return;
   it.qty += delta;
-  if (it.qty <= 0) return removeFromCart(id);
+  if (it.qty <= 0) return removeFromCart(id, varIdx);
   DB.set(DB.keys.cart, cart);
   updateCartCount();
   renderCart();
@@ -395,32 +430,36 @@ function renderCart() {
   cart.forEach(it => {
     const p = products.find(x => x.id === it.id);
     if (!p) return;
+    const vs = productVariants(p);
+    const v = vs[it.varIdx || 0] || vs[0];
     const name = lang === 'si' ? p.nameSi : p.nameEn;
-    subtotal += p.price * it.qty;
+    const lineTotal = v.price * it.qty;
+    subtotal += lineTotal;
     const oosInCart = (p.stock === 0);
     const el = document.createElement('div');
     el.className = 'cart-item' + (oosInCart ? ' oos-item' : '');
     el.innerHTML = `
       <img src="${p.img || PLACEHOLDER}" onerror="this.src=PLACEHOLDER"${oosInCart ? ' class="oos"' : ''}>
       <div class="info">
-        <h4>${name}</h4>
+        <h4>${name} <span class="cart-var">(${v.label})</span></h4>
         ${oosInCart ? `<div style="color:#c0392b;font-size:11px;font-weight:700">⛔ ${lang==='si'?'තොගය අවසන් — ඉවත් කරන්න':'Out of stock — please remove'}</div>` : ''}
-        <div style="color:#666;font-size:12px">Rs. ${p.price} × ${it.qty} = <b>Rs. ${p.price*it.qty}</b></div>
+        <div style="color:#666;font-size:12px">Rs. ${v.price} × ${it.qty} = <b>Rs. ${lineTotal}</b></div>
         <div class="qty-ctrl">
-          <button data-act="dec" data-id="${p.id}">−</button>
+          <button data-act="dec" data-id="${p.id}" data-vidx="${it.varIdx || 0}">−</button>
           <span>${it.qty}</span>
-          <button data-act="inc" data-id="${p.id}">+</button>
+          <button data-act="inc" data-id="${p.id}" data-vidx="${it.varIdx || 0}">+</button>
         </div>
       </div>
-      <button class="remove-btn" data-act="rm" data-id="${p.id}" title="Remove">🗑️</button>`;
+      <button class="remove-btn" data-act="rm" data-id="${p.id}" data-vidx="${it.varIdx || 0}" title="Remove">🗑️</button>`;
     list.appendChild(el);
   });
   list.querySelectorAll('button[data-act]').forEach(b => {
     b.addEventListener('click', () => {
       const id = parseInt(b.dataset.id);
-      if (b.dataset.act === 'inc') changeQty(id, 1);
-      else if (b.dataset.act === 'dec') changeQty(id, -1);
-      else removeFromCart(id);
+      const vidx = parseInt(b.dataset.vidx || '0') || 0;
+      if (b.dataset.act === 'inc') changeQty(id, 1, vidx);
+      else if (b.dataset.act === 'dec') changeQty(id, -1, vidx);
+      else removeFromCart(id, vidx);
     });
   });
   document.getElementById('subtotal').textContent = subtotal;
@@ -544,9 +583,11 @@ function buildOrder(formData) {
   const items = cart.map(it => {
     const p = products.find(x => x.id === it.id);
     if (!p) return null;
-    const total = p.price * it.qty;
+    const vs = productVariants(p);
+    const v = vs[it.varIdx || 0] || vs[0];
+    const total = v.price * it.qty;
     sub += total;
-    return { id: p.id, name: p.nameEn, nameSi: p.nameSi, unit: p.unit || '', qty: it.qty, price: p.price, total };
+    return { id: p.id, name: p.nameEn, nameSi: p.nameSi, varIdx: it.varIdx || 0, unit: v.label, qty: it.qty, price: v.price, total };
   }).filter(Boolean);
   const row = findRate(formData.district, formData.city);
   const charge = row ? computeCharge(row, kg) : 0;

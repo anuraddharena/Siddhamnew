@@ -29,31 +29,63 @@ const DB = {
   remove(k) { localStorage.removeItem(k); }
 };
 
-/* ---------- Default products (18 items) ---------- */
+/* ---------- Default products (19 items) ----------
+   Each product can have multiple SIZE VARIANTS (100g / 200g / 500g...).
+   variants: [{ label, price, weightG }] — customer ticks the size.
+   unit/price/weightG keep the FIRST variant for legacy compatibility. */
 const DEFAULT_PRODUCTS = [
-  // SPICES  (weightG = net product weight in grams)
-  { id: 1,  cat: 'spices', nameSi: 'කහ කුඩු',            nameEn: 'Turmeric Powder',      price: 320, unit: '100g',   weightG: 100, img: '', desc: 'Pure Sri Lankan turmeric' },
-  { id: 2,  cat: 'spices', nameSi: 'මිරිස් කුඩු',         nameEn: 'Chilli Powder',        price: 480, unit: '100g',   weightG: 100, img: '', desc: 'Roasted red chilli powder' },
-  { id: 3,  cat: 'spices', nameSi: 'තුනපහ',              nameEn: 'Curry Powder',         price: 350, unit: '100g',   weightG: 100, img: '', desc: 'Roasted curry powder' },
-  { id: 4,  cat: 'spices', nameSi: 'ගම්මිරිස් කුඩු',      nameEn: 'Black Pepper Powder',  price: 520, unit: '50g',    weightG: 50,  img: '', desc: 'Freshly ground pepper' },
+  // SPICES
+  { id: 1,  cat: 'spices', nameSi: 'කහ කුඩු',            nameEn: 'Turmeric Powder', unit: '100g', price: 320, weightG: 100,
+    variants: [ { label: '100g', price: 320, weightG: 100 }, { label: '200g', price: 600, weightG: 200 }, { label: '500g', price: 1400, weightG: 500 } ],
+    img: '', desc: 'Pure Sri Lankan turmeric' },
+  { id: 2,  cat: 'spices', nameSi: 'මිරිස් කුඩු',         nameEn: 'Chilli Powder', unit: '100g', price: 480, weightG: 100,
+    variants: [ { label: '100g', price: 480, weightG: 100 }, { label: '200g', price: 900, weightG: 200 }, { label: '500g', price: 2100, weightG: 500 } ],
+    img: '', desc: 'Roasted red chilli powder' },
+  { id: 3,  cat: 'spices', nameSi: 'තුනපහ',              nameEn: 'Curry Powder', unit: '100g', price: 350, weightG: 100,
+    variants: [ { label: '100g', price: 350, weightG: 100 }, { label: '200g', price: 660, weightG: 200 }, { label: '500g', price: 1550, weightG: 500 } ],
+    img: '', desc: 'Roasted curry powder' },
+  { id: 4,  cat: 'spices', nameSi: 'ගම්මිරිස් කුඩු',      nameEn: 'Black Pepper Powder', unit: '100g', price: 520, weightG: 100,
+    variants: [ { label: '100g', price: 520, weightG: 100 }, { label: '200g', price: 980, weightG: 200 }, { label: '500g', price: 2300, weightG: 500 } ],
+    img: '', desc: 'Freshly ground pepper' },
   // SPREADS
-  { id: 5,  cat: 'spreads', nameSi: 'පොල් සම්බෝල',       nameEn: 'Coconut Sambol',       price: 380, unit: '200g',   weightG: 200, img: '', desc: 'Traditional pol sambol' },
-  { id: 6,  cat: 'spreads', nameSi: 'කරවල සම්බෝල',      nameEn: 'Dry Fish Sambol',      price: 450, unit: '200g',   weightG: 200, img: '', desc: 'Spicy karawala sambol' },
-  { id: 7,  cat: 'spreads', nameSi: 'ලූනු මිරිස්',         nameEn: 'Onion Chilli Paste',   price: 400, unit: '200g',   weightG: 200, img: '', desc: 'Lunu miris paste' },
+  { id: 5,  cat: 'spreads', nameSi: 'පොල් සම්බෝල',       nameEn: 'Coconut Sambol', unit: '200g', price: 380, weightG: 200,
+    variants: [ { label: '200g', price: 380, weightG: 200 } ], img: '', desc: 'Traditional pol sambol' },
+  { id: 6,  cat: 'spreads', nameSi: 'කරවල සම්බෝල',      nameEn: 'Dry Fish Sambol', unit: '200g', price: 450, weightG: 200,
+    variants: [ { label: '200g', price: 450, weightG: 200 } ], img: '', desc: 'Spicy karawala sambol' },
+  { id: 7,  cat: 'spreads', nameSi: 'ලූනු මිරිස්',         nameEn: 'Onion Chilli Paste', unit: '200g', price: 400, weightG: 200,
+    variants: [ { label: '200g', price: 400, weightG: 200 } ], img: '', desc: 'Lunu miris paste' },
   // SWEETMEATS (pcs — weight is approximate)
-  { id: 8,  cat: 'sweetmeats', nameSi: 'කැවුම්',           nameEn: 'Kevum',                price: 250, unit: '10 pcs', weightG: 250, img: '', desc: 'Traditional oil cakes' },
-  { id: 9,  cat: 'sweetmeats', nameSi: 'කොකිස්',           nameEn: 'Kokis',                price: 220, unit: '250g',   weightG: 250, img: '', desc: 'Crispy kokis' },
-  { id: 10, cat: 'sweetmeats', nameSi: 'අළුවා',            nameEn: 'Aluwa',                price: 300, unit: '250g',   weightG: 250, img: '', desc: 'Semolina aluwa' },
-  { id: 11, cat: 'sweetmeats', nameSi: 'මුං කැවුම්',        nameEn: 'Mung Kevum',           price: 350, unit: '10 pcs', weightG: 300, img: '', desc: 'Green gram sweets' },
+  { id: 8,  cat: 'sweetmeats', nameSi: 'කැවුම්',           nameEn: 'Kevum', unit: '10 pcs', price: 250, weightG: 250,
+    variants: [ { label: '10 pcs', price: 250, weightG: 250 } ], img: '', desc: 'Traditional oil cakes' },
+  { id: 9,  cat: 'sweetmeats', nameSi: 'කොකිස්',           nameEn: 'Kokis', unit: '250g', price: 220, weightG: 250,
+    variants: [ { label: '250g', price: 220, weightG: 250 } ], img: '', desc: 'Crispy kokis' },
+  { id: 10, cat: 'sweetmeats', nameSi: 'අළුවා',            nameEn: 'Aluwa', unit: '250g', price: 300, weightG: 250,
+    variants: [ { label: '250g', price: 300, weightG: 250 } ], img: '', desc: 'Semolina aluwa' },
+  { id: 11, cat: 'sweetmeats', nameSi: 'මුං කැවුම්',        nameEn: 'Mung Kevum', unit: '10 pcs', price: 350, weightG: 300,
+    variants: [ { label: '10 pcs', price: 350, weightG: 300 } ], img: '', desc: 'Green gram sweets' },
   // COOKING ESSENTIALS
-  { id: 12, cat: 'cooking', nameSi: 'පොල්තෙල්',           nameEn: 'Coconut Oil',          price: 750, unit: '750ml',  weightG: 750,  img: '', desc: 'Pure virgin coconut oil' },
-  { id: 13, cat: 'cooking', nameSi: 'දේශීය කැකුළු හාල්',  nameEn: 'Traditional Rice',     price: 320, unit: '1kg',    weightG: 1000, img: '', desc: 'Kekulu rice' },
-  { id: 14, cat: 'cooking', nameSi: 'රත්මල් බත්තල පිටි',   nameEn: 'Kurakkan Flour',       price: 280, unit: '500g',   weightG: 500,  img: '', desc: 'Finger millet flour' },
+  { id: 12, cat: 'cooking', nameSi: 'පොල්තෙල්',           nameEn: 'Coconut Oil', unit: '750ml', price: 750, weightG: 750,
+    variants: [ { label: '750ml', price: 750, weightG: 750 } ], img: '', desc: 'Pure virgin coconut oil' },
+  { id: 13, cat: 'cooking', nameSi: 'දේශීය කැකුළු හාල්',  nameEn: 'Traditional Rice', unit: '1kg', price: 320, weightG: 1000,
+    variants: [ { label: '1kg', price: 320, weightG: 1000 } ], img: '', desc: 'Kekulu rice' },
+  { id: 14, cat: 'cooking', nameSi: 'රත්මල් බත්තල පිටි',   nameEn: 'Kurakkan Flour', unit: '500g', price: 280, weightG: 500,
+    variants: [ { label: '500g', price: 280, weightG: 500 } ], img: '', desc: 'Finger millet flour' },
   // WHOLE SPICES
-  { id: 15, cat: 'whole', nameSi: 'කුරුඳු',                nameEn: 'Cinnamon Sticks',      price: 550, unit: '100g',   weightG: 100, img: '', desc: 'Pure Ceylon cinnamon' },
-  { id: 16, cat: 'whole', nameSi: 'ගම්මිරිස්',              nameEn: 'Black Pepper (whole)', price: 480, unit: '100g',   weightG: 100, img: '', desc: 'Whole black pepper' },
-  { id: 17, cat: 'whole', nameSi: 'කරාබු නැටි',            nameEn: 'Cloves',               price: 620, unit: '50g',    weightG: 50,  img: '', desc: 'Aromatic cloves' },
-  { id: 18, cat: 'whole', nameSi: 'එන්සාල්',                nameEn: 'Cardamom',             price: 780, unit: '50g',    weightG: 50,  img: '', desc: 'Green cardamom pods' },
+  { id: 15, cat: 'whole', nameSi: 'කුරුඳු',                nameEn: 'Cinnamon Sticks', unit: '100g', price: 550, weightG: 100,
+    variants: [ { label: '100g', price: 550, weightG: 100 }, { label: '200g', price: 1050, weightG: 200 }, { label: '500g', price: 2500, weightG: 500 } ],
+    img: '', desc: 'Pure Ceylon cinnamon' },
+  { id: 16, cat: 'whole', nameSi: 'ගම්මිරිස්',              nameEn: 'Black Pepper (whole)', unit: '100g', price: 480, weightG: 100,
+    variants: [ { label: '100g', price: 480, weightG: 100 }, { label: '200g', price: 920, weightG: 200 }, { label: '500g', price: 2200, weightG: 500 } ],
+    img: '', desc: 'Whole black pepper' },
+  { id: 17, cat: 'whole', nameSi: 'කරාබු නැටි',            nameEn: 'Cloves', unit: '50g', price: 620, weightG: 50,
+    variants: [ { label: '50g', price: 620, weightG: 50 }, { label: '100g', price: 1180, weightG: 100 } ],
+    img: '', desc: 'Aromatic cloves' },
+  { id: 18, cat: 'whole', nameSi: 'එන්සාල්',                nameEn: 'Cardamom', unit: '50g', price: 780, weightG: 50,
+    variants: [ { label: '50g', price: 780, weightG: 50 }, { label: '100g', price: 1500, weightG: 100 } ],
+    img: '', desc: 'Green cardamom pods' },
+  { id: 19, cat: 'whole', nameSi: 'ගොරකා',                nameEn: 'Goraka Slices', unit: '100g', price: 350, weightG: 100,
+    variants: [ { label: '100g', price: 350, weightG: 100 }, { label: '200g', price: 660, weightG: 200 }, { label: '500g', price: 1550, weightG: 500 } ],
+    img: '', desc: 'Dried goraka for sour curries' },
 ];
 
 /* ---------- Default categories (editable from admin) ---------- */
@@ -80,12 +112,30 @@ function catName(catId, lang) {
 }
 
 /* Seed demo sold-counts (admin can change any time via Products form) */
-const DEMO_SOLD = { 1: 42, 2: 35, 3: 28, 4: 31, 5: 18, 6: 12, 7: 15, 8: 26, 9: 22, 10: 19, 11: 16, 12: 24, 13: 20, 14: 14, 15: 38, 16: 29, 17: 21, 18: 17 };
+const DEMO_SOLD = { 1: 42, 2: 35, 3: 28, 4: 31, 5: 18, 6: 12, 7: 15, 8: 26, 9: 22, 10: 19, 11: 16, 12: 24, 13: 20, 14: 14, 15: 38, 16: 29, 17: 21, 18: 17, 19: 9 };
 DEFAULT_PRODUCTS.forEach(p => { p.sold = DEMO_SOLD[p.id] || 0; });
 
 /* Seed demo stock counts (0 = out of stock; admin can change any time) */
-const DEMO_STOCK = { 1: 40, 2: 35, 3: 25, 4: 30, 5: 20, 6: 12, 7: 16, 8: 28, 9: 22, 10: 19, 11: 14, 12: 24, 13: 30, 14: 18, 15: 38, 16: 26, 17: 0, 18: 15 };
+const DEMO_STOCK = { 1: 40, 2: 35, 3: 25, 4: 30, 5: 20, 6: 12, 7: 16, 8: 28, 9: 22, 10: 19, 11: 14, 12: 24, 13: 30, 14: 18, 15: 38, 16: 26, 17: 0, 18: 15, 19: 25 };
 DEFAULT_PRODUCTS.forEach(p => { p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50; });
+
+/* Make sure a product list always has sold + stock (and variants if missing) */
+function migrateProducts(list) {
+  list.forEach(p => {
+    if (p.sold === undefined) p.sold = DEMO_SOLD[p.id] || 0;
+    if (p.stock === undefined) p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50;
+    if (p.variants === undefined && (p.price !== undefined || p.unit)) {
+      p.variants = [{ label: p.unit || '1 pack', price: p.price || 0, weightG: p.weightG || 100 }];
+    }
+  });
+  return list;
+}
+
+/* Get a product's size variants (always at least one) */
+function productVariants(p) {
+  if (p && Array.isArray(p.variants) && p.variants.length) return p.variants;
+  return [{ label: (p && p.unit) || '1 pack', price: (p && p.price) || 0, weightG: (p && p.weightG) || 100 }];
+}
 
 /* ---------- Default delivery rates (new structure) ----------
    Each entry: { branch, district, city, firstKg, additionalKg }
@@ -166,12 +216,16 @@ const DEFAULT_SETTINGS = {
   jsonBinBase: '',
 };
 
-/* Cart weight helpers — auto calculate kg from cart contents */
+/* Cart weight helpers — auto calculate kg from cart contents (uses selected variant weight) */
 function cartTotalWeightG(cart, products) {
   let g = 0;
   cart.forEach(it => {
     const p = products.find(x => x.id === it.id);
-    if (p) g += (p.weightG || 0) * it.qty;
+    if (p) {
+      const vs = productVariants(p);
+      const v = vs[it.varIdx || 0] || vs[0];
+      g += (v.weightG || 0) * it.qty;
+    }
   });
   return g;
 }
@@ -242,14 +296,10 @@ window.PLACEHOLDER = window.ASSET_BASE + 'assets/placeholder.jpg';
 
 function initDB() {
   if (!DB.get(DB.keys.products)) DB.set(DB.keys.products, DEFAULT_PRODUCTS);
-  // migrate: make sure every product has sold counter + stock count
+  // migrate: make sure every product has sold counter + stock count (+ variants)
   const prods = DB.get(DB.keys.products, []);
-  if (prods.length && (prods.some(p => p.sold === undefined) || prods.some(p => p.stock === undefined))) {
-    prods.forEach(p => {
-      if (p.sold === undefined) p.sold = DEMO_SOLD[p.id] || 0;
-      if (p.stock === undefined) p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50;
-    });
-    DB.set(DB.keys.products, prods);
+  if (prods.length && (prods.some(p => p.sold === undefined) || prods.some(p => p.stock === undefined) || prods.some(p => p.variants === undefined))) {
+    DB.set(DB.keys.products, migrateProducts(prods));
   }
   if (!DB.get(DB.keys.categories)) DB.set(DB.keys.categories, DEFAULT_CATEGORIES);
   // Districts must be an array of {branch,district,city,firstKg,addKg}
@@ -314,16 +364,43 @@ function syncFromDataJson() {
         const ver = j.version || 1;
         const cur = DB.get(DATA_FILE_VERSION_KEY, null);
         if (cur === null || cur !== ver) {
-          if (Array.isArray(j.products) && j.products.length) DB.set(DB.keys.products, j.products);
-          if (Array.isArray(j.categories) && j.categories.length) DB.set(DB.keys.categories, j.categories);
-          if (Array.isArray(j.districts) && j.districts.length) DB.set(DB.keys.districts, j.districts);
+          /* --- Products: file items WINS, but keep this browser's own additions
+                 (items whose id is not in the file) so admin-added items are never lost --- */
+          if (Array.isArray(j.products) && j.products.length) {
+            const fileIds = new Set(j.products.map(p => p.id));
+            const local = DB.get(DB.keys.products, []);
+            const extras = Array.isArray(local) ? local.filter(p => p && !fileIds.has(p.id)) : [];
+            DB.set(DB.keys.products, migrateProducts(j.products.concat(extras)));
+          }
+          /* --- Categories: same merge (keep admin-created ones) --- */
+          if (Array.isArray(j.categories) && j.categories.length) {
+            const fileIds = new Set(j.categories.map(c => c.id));
+            const local = DB.get(DB.keys.categories, []);
+            const extras = Array.isArray(local) ? local.filter(c => c && !fileIds.has(c.id)) : [];
+            DB.set(DB.keys.categories, j.categories.concat(extras));
+          }
+          /* --- Districts: keep local-only rows --- */
+          if (Array.isArray(j.districts) && j.districts.length) {
+            const fileKeys = new Set(j.districts.map(r => r.district + '|' + r.city));
+            const local = DB.get(DB.keys.districts, []);
+            const extras = Array.isArray(local) ? local.filter(r => r && !fileKeys.has(r.district + '|' + r.city)) : [];
+            DB.set(DB.keys.districts, j.districts.concat(extras));
+          }
           if (j.settings) {
             const local = DB.get(DB.keys.settings, {});
             const merged = Object.assign({}, DEFAULT_SETTINGS, j.settings);
             if (local.password) merged.password = local.password; // never override password from file
+            // keep local cloud keys if file has none
+            if (!merged.commentsBinId && local.commentsBinId) merged.commentsBinId = local.commentsBinId;
+            if (!merged.commentsApiKey && local.commentsApiKey) merged.commentsApiKey = local.commentsApiKey;
             DB.set(DB.keys.settings, merged);
           }
-          if (j.branding) DB.set(DB.keys.branding, Object.assign({}, DEFAULT_BRANDING, j.branding));
+          if (j.branding) {
+            const local = DB.get(DB.keys.branding, {});
+            const nb = Object.assign({}, DEFAULT_BRANDING, j.branding);
+            Object.keys(nb).forEach(k => { if (!nb[k] && local[k]) nb[k] = local[k]; });
+            DB.set(DB.keys.branding, nb);
+          }
           DB.set(DATA_FILE_VERSION_KEY, ver);
         }
       }
