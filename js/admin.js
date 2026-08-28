@@ -296,12 +296,16 @@ function loadOrders() {
     const all = DB.get('siddham_orders', []);
     const o = all.find(x => x.orderId === sel.dataset.id);
     if (o) {
-      // Auto-count sales when an order becomes Delivered (counted once)
+      // Auto-count sales + reduce stock when an order becomes Delivered (counted once)
       if (sel.value === 'delivered' && o.status !== 'delivered' && !o.soldCounted) {
         const products = DB.get(DB.keys.products, []);
         o.items.forEach(it => {
           const p = products.find(x => x.id === it.id || x.name === it.name);
-          if (p) p.sold = (p.sold || 0) + it.qty;
+          if (p) {
+            p.sold = (p.sold || 0) + it.qty;
+            // reduce stock (never below 0)
+            p.stock = Math.max(0, ((p.stock === undefined) ? 50 : p.stock) - it.qty);
+          }
         });
         DB.set(DB.keys.products, products);
         o.soldCounted = true;
@@ -402,6 +406,9 @@ function loadProducts() {
         <small>${catName(p.cat, 'si')} • ${p.unit || ''}</small><br>
         <span style="color:#a5811a;font-weight:bold">Rs. ${p.price}</span>
         <small style="color:#27ae60;font-weight:700">🟢 Sold: ${p.sold || 0}</small>
+        <small style="color:${(p.stock === 0) ? '#c0392b' : '#1e8449'};font-weight:700;margin-left:8px">
+          ${(p.stock === 0) ? '🔴 තොගය අවසන්' : '📦 Stock: ' + (p.stock ?? 50)}
+        </small>
         <div class="actions">
           <button class="edit-btn" data-id="${p.id}">Edit</button>
           <button class="del-btn" data-id="${p.id}">Delete</button>
@@ -425,6 +432,7 @@ function editProduct(id) {
   document.getElementById('pUnit').value = p.unit || '';
   document.getElementById('pWeightG').value = p.weightG || '';
   document.getElementById('pSold').value = p.sold || 0;
+  document.getElementById('pStock').value = (p.stock === undefined) ? 50 : p.stock;
   document.getElementById('pDesc').value = p.desc || '';
   document.getElementById('saveProductBtn').textContent = 'Update Product';
   document.getElementById('cancelEditBtn').style.display = 'inline-block';
@@ -536,6 +544,9 @@ function wireForms() {
 
     const weightG = parseInt(document.getElementById('pWeightG').value) || 100;
     const sold = Math.max(0, parseInt(document.getElementById('pSold').value) || 0);
+    let stock = parseInt(document.getElementById('pStock').value);
+    if (isNaN(stock)) stock = 50;
+    stock = Math.max(0, stock);
     if (id) {
       const p = products.find(x => x.id === parseInt(id));
       Object.assign(p, {
@@ -546,6 +557,7 @@ function wireForms() {
         unit: document.getElementById('pUnit').value,
         weightG,
         sold,
+        stock,
         desc: document.getElementById('pDesc').value,
       });
       if (img) p.img = img;
@@ -560,6 +572,7 @@ function wireForms() {
         unit: document.getElementById('pUnit').value,
         weightG,
         sold,
+        stock,
         desc: document.getElementById('pDesc').value,
         img
       });

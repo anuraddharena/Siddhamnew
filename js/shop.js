@@ -18,15 +18,23 @@ function socialCfg() {
 function socialRemote() {
   const c = socialCfg();
   if (!c.binId || !c.key || typeof fetch !== 'function') return null;
+  const url = `${c.base}/b/${c.binId}`;
+  /* Try X-Master-Key first, then X-Access-Key (both jsonbin v3 key types) */
+  async function withKey(method, body) {
+    for (const h of ['X-Master-Key', 'X-Access-Key']) {
+      const r = await fetch(url + (method === 'GET' ? '/latest' : ''), {
+        method,
+        headers: { [h]: c.key, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      }).catch(() => null);
+      if (r && r.ok) return r;
+    }
+    return null;
+  }
   return {
-    get: () => fetch(`${c.base}/b/${c.binId}/latest`, { headers: { 'X-Master-Key': c.key } })
-      .then(r => r.ok ? r.json() : null)
-      .then(j => (j && (j.record || j)) || null),
-    put: doc => fetch(`${c.base}/b/${c.binId}`, {
-      method: 'PUT',
-      headers: { 'X-Master-Key': c.key, 'Content-Type': 'application/json' },
-      body: JSON.stringify(doc)
-    }).then(r => r.ok)
+    get: () => withKey('GET')
+      .then(r => r ? r.json().then(j => (j && (j.record || j)) || null) : null),
+    put: doc => withKey('PUT', doc).then(r => !!r)
   };
 }
 function socialDoc() {
@@ -212,21 +220,33 @@ function renderProducts() {
     if (!(p.id in selectedQty)) selectedQty[p.id] = 1;
     const name = lang === 'si' ? p.nameSi : p.nameEn;
     const img = p.img || PLACEHOLDER;
+    const stock = (p.stock === undefined) ? 50 : p.stock;
+    const oos = stock === 0;
     const card = document.createElement('div');
-    card.className = 'product-card';
+    card.className = 'product-card' + (oos ? ' oos-card' : '');
     card.innerHTML = `
-      <img src="${img}" alt="${name}" onerror="this.src=PLACEHOLDER">
+      <div class="p-img-wrap">
+        <img src="${img}" alt="${name}" onerror="this.src=PLACEHOLDER"${oos ? ' class="oos"' : ''}>
+        ${oos ? `<div class="oos-tag">${lang === 'si' ? 'තොගය අවසන්' : 'OUT OF STOCK'}</div>` : ''}
+      </div>
       <div class="product-info">
         <h3>${name}</h3>
         <div class="unit">${p.unit || ''}</div>
+        <div class="stock-chip ${oos ? 'out' : 'in'}">
+          ${oos
+            ? `✕ ${lang === 'si' ? 'තොගය අවසන්' : 'Out of Stock'}`
+            : `✓ ${lang === 'si' ? `තොගයේ ඇත (${stock})` : `In Stock (${stock})`}`}
+        </div>
         <div class="price">Rs. ${p.price}</div>
         <div class="qty-select">
           <button type="button" class="qty-btn" data-act="dec" data-id="${p.id}">−</button>
           <span class="qty-num" id="qty-${p.id}">${selectedQty[p.id]}</span>
           <button type="button" class="qty-btn" data-act="inc" data-id="${p.id}">+</button>
         </div>
-        <button class="add-cart-btn" data-id="${p.id}">
-          🛒 ${lang === 'si' ? 'කරත්තයට එකතු කරන්න' : 'Add to Cart'}
+        <button class="add-cart-btn" data-id="${p.id}" ${oos ? 'disabled' : ''}>
+          ${oos
+            ? `⛔ ${lang === 'si' ? 'තොගය අවසන්' : 'Out of Stock'}`
+            : `🛒 ${lang === 'si' ? 'කරත්තයට එකතු කරන්න' : 'Add to Cart'}`}
         </button>
         ${itemSocialHTML(p, lang, maxSold)}
       </div>`;
@@ -318,6 +338,14 @@ function showToast(msg) {
 }
 
 function addToCart(id) {
+  // safety: never add an out-of-stock item
+  const all = DB.get(DB.keys.products, []);
+  const prod = all.find(x => x.id === id);
+  if (prod && (prod.stock === 0)) {
+    const lang = DB.get(DB.keys.lang, 'si');
+    showToast(lang === 'si' ? '⛔ තොගය අවසන්!' : '⛔ Out of stock!');
+    return;
+  }
   const qty = selectedQty[id] || 1;
   const cart = DB.get(DB.keys.cart, []);
   const existing = cart.find(i => i.id === id);
@@ -369,12 +397,14 @@ function renderCart() {
     if (!p) return;
     const name = lang === 'si' ? p.nameSi : p.nameEn;
     subtotal += p.price * it.qty;
+    const oosInCart = (p.stock === 0);
     const el = document.createElement('div');
-    el.className = 'cart-item';
+    el.className = 'cart-item' + (oosInCart ? ' oos-item' : '');
     el.innerHTML = `
-      <img src="${p.img || PLACEHOLDER}" onerror="this.src=PLACEHOLDER">
+      <img src="${p.img || PLACEHOLDER}" onerror="this.src=PLACEHOLDER"${oosInCart ? ' class="oos"' : ''}>
       <div class="info">
         <h4>${name}</h4>
+        ${oosInCart ? `<div style="color:#c0392b;font-size:11px;font-weight:700">⛔ ${lang==='si'?'තොගය අවසන් — ඉවත් කරන්න':'Out of stock — please remove'}</div>` : ''}
         <div style="color:#666;font-size:12px">Rs. ${p.price} × ${it.qty} = <b>Rs. ${p.price*it.qty}</b></div>
         <div class="qty-ctrl">
           <button data-act="dec" data-id="${p.id}">−</button>

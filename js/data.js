@@ -83,6 +83,10 @@ function catName(catId, lang) {
 const DEMO_SOLD = { 1: 42, 2: 35, 3: 28, 4: 31, 5: 18, 6: 12, 7: 15, 8: 26, 9: 22, 10: 19, 11: 16, 12: 24, 13: 20, 14: 14, 15: 38, 16: 29, 17: 21, 18: 17 };
 DEFAULT_PRODUCTS.forEach(p => { p.sold = DEMO_SOLD[p.id] || 0; });
 
+/* Seed demo stock counts (0 = out of stock; admin can change any time) */
+const DEMO_STOCK = { 1: 40, 2: 35, 3: 25, 4: 30, 5: 20, 6: 12, 7: 16, 8: 28, 9: 22, 10: 19, 11: 14, 12: 24, 13: 30, 14: 18, 15: 38, 16: 26, 17: 0, 18: 15 };
+DEFAULT_PRODUCTS.forEach(p => { p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50; });
+
 /* ---------- Default delivery rates (new structure) ----------
    Each entry: { branch, district, city, firstKg, additionalKg }
    Charge formula: firstKg + (weight-1) * additionalKg
@@ -238,10 +242,13 @@ window.PLACEHOLDER = window.ASSET_BASE + 'assets/placeholder.jpg';
 
 function initDB() {
   if (!DB.get(DB.keys.products)) DB.set(DB.keys.products, DEFAULT_PRODUCTS);
-  // migrate: make sure every product has a sold counter (seed demo values by id)
+  // migrate: make sure every product has sold counter + stock count
   const prods = DB.get(DB.keys.products, []);
-  if (prods.length && prods.some(p => p.sold === undefined)) {
-    prods.forEach(p => { if (p.sold === undefined) p.sold = DEMO_SOLD[p.id] || 0; });
+  if (prods.length && (prods.some(p => p.sold === undefined) || prods.some(p => p.stock === undefined))) {
+    prods.forEach(p => {
+      if (p.sold === undefined) p.sold = DEMO_SOLD[p.id] || 0;
+      if (p.stock === undefined) p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50;
+    });
     DB.set(DB.keys.products, prods);
   }
   if (!DB.get(DB.keys.categories)) DB.set(DB.keys.categories, DEFAULT_CATEGORIES);
