@@ -116,7 +116,28 @@ function loadAdminUI() {
   loadDistricts();
   loadSettings();
   loadBranding();
+  loadPublishBanner();
   wireForms();
+}
+
+/* ---------- PUBLISH STATUS banner ---------- */
+function loadPublishBanner() {
+  const el = document.getElementById('publishBanner');
+  if (!el) return;
+  let html = '';
+  if (typeof hasUnpublishedChanges === 'function' && hasUnpublishedChanges()) {
+    html += `<div style="padding:10px 14px;background:#fff8e1;border:1px solid #f0c36d;border-radius:8px;margin-bottom:12px">
+      ⚠️ <b>ඔයාගේ අලුත් වෙනස්කම් තවම publish වෙලා නැහැ.</b> Customers ට පේන්න:
+      Settings → <b>⬇️ Download data.json</b> → GitHub repo එකේ <code>data/site-data.json</code> replace කරන්න.
+    </div>`;
+  }
+  if (DB.get('siddham_storage_limited', 0) === 1) {
+    html += `<div style="padding:10px 14px;background:#fdecea;border:1px solid #f2c4bd;border-radius:8px;margin-bottom:12px">
+      🚫 <b>Browser storage එක පිරිලා</b> — product images නැතුව catalogue එක පෙන්වයි.
+      Images අඩු කරන්න (Edit → ✕ Remove Image) හෝ data.json එක පොඩි කරන්න.
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
 // product form: user asked to remove the current image
@@ -180,6 +201,7 @@ function moveCat(i, dir) {
   if (j < 0 || j >= cats.length) return;
   [cats[i], cats[j]] = [cats[j], cats[i]];
   DB.set(DB.keys.categories, cats);
+  markLocalEdit();
   loadCategories();
 }
 
@@ -204,6 +226,7 @@ function deleteCategory(id) {
   if (!confirm('Delete this category?')) return;
   const cats = getCategories().filter(c => c.id !== id);
   DB.set(DB.keys.categories, cats);
+  markLocalEdit();
   loadCategories();
   fillCatSelect();
 }
@@ -315,6 +338,8 @@ function loadOrders() {
       }
       o.status = sel.value;
       DB.set('siddham_orders', all);
+      markLocalEdit(); // sold/stock changed in products
+      loadPublishBanner();
       loadOrders();
       loadStats();
     }
@@ -461,7 +486,9 @@ function deleteProduct(id) {
   let products = DB.get(DB.keys.products, []);
   products = products.filter(p => p.id !== id);
   DB.set(DB.keys.products, products);
+  markLocalEdit();
   loadProducts();
+  loadPublishBanner();
   loadStats();
 }
 
@@ -684,6 +711,7 @@ function wireForms() {
       });
     }
     if (!safeSet(DB.keys.products, products, 'Product')) return;
+    markLocalEdit();
     e.target.reset();
     setVarRows([{}]);
     imgRemoveFlag = false;
@@ -693,6 +721,7 @@ function wireForms() {
     document.getElementById('saveProductBtn').textContent = 'Add Product';
     document.getElementById('cancelEditBtn').style.display = 'none';
     loadProducts();
+    loadPublishBanner();
     loadStats();
     alert('Saved!');
   });
@@ -750,12 +779,14 @@ function wireForms() {
       cats.push({ id: makeCatId(en, cats), nameSi: si, nameEn: en });
     }
     DB.set(DB.keys.categories, cats);
+    markLocalEdit();
     document.getElementById('catForm').reset();
     document.getElementById('catEditId').value = '';
     document.getElementById('saveCatBtn').textContent = 'Add Category';
     document.getElementById('cancelCatEditBtn').style.display = 'none';
     loadCategories();
     fillCatSelect();
+    loadPublishBanner();
     alert('Saved!');
   });
 
@@ -797,6 +828,7 @@ function wireForms() {
         count++;
       }
       DB.set(DB.keys.districts, arr);
+      markLocalEdit();
       loadDistricts();
       alert(`✓ Imported ${count} row(s).${errors ? ' Skipped ' + errors + ' invalid row(s).' : ''}`);
     };
@@ -826,6 +858,7 @@ function wireForms() {
     arr = arr.filter(r => !(r.district === district && r.city === city));
     arr.push({ branch, district, city, firstKg: first, addKg: add });
     DB.set(DB.keys.districts, arr);
+    markLocalEdit();
     ['newBranch','newDistrict','newCity','newFirst','newAdd'].forEach(id => document.getElementById(id).value = '');
     loadDistricts();
   });
@@ -851,10 +884,18 @@ function wireForms() {
     s.commentsBinId = document.getElementById('commentsBinId').value.trim();
     s.commentsApiKey = document.getElementById('commentsApiKey').value.trim();
     DB.set(DB.keys.settings, s);
+    markLocalEdit();
     alert('Settings saved');
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', downloadDataJson);
+
+  // Force re-apply of the PUBLISHED data.json (replaces local catalogue)
+  document.getElementById('forceResyncBtn').addEventListener('click', () => {
+    if (!confirm('👀 Published data.json එක ආයෙත් apply කරලා ඔයාගේ local list එක ඒකෙන් replace වෙනවා. (ඔයාගේ unpublished changes නැති වෙනවා) Continue?')) return;
+    DB.set(FORCE_RESYNC_KEY, 1);
+    location.reload();
+  });
 
   // Orders tab
   document.getElementById('ordFilter').addEventListener('change', loadOrders);
@@ -921,6 +962,7 @@ function wireForms() {
     if (newLogo) b.logo = newLogo;
     if (newHero) b.hero = newHero;
     if (!safeSet(DB.keys.branding, b, 'Branding')) return;
+    markLocalEdit();
     alert('Branding saved');
   });
 }

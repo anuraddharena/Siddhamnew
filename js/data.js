@@ -333,13 +333,45 @@ bumpVisit();
 /* ============================================================
    data/site-data.json sync (GitHub "publish" file)
    ------------------------------------------------------------
-   - If a data/site-data.json exists next to the site, its data
-     overrides the code defaults (applied once per version).
-   - Admin → Settings → "Download data.json" creates this file;
-     upload it to the GitHub repo to publish news/changes to all
-     visitors. Old localStorage data is kept unless version changes.
+   DRAFT-PUBLISH MODEL (v4):
+   - The JSON file is the PUBLISHED catalogue for all visitors.
+   - Admin edits are a LOCAL DRAFT (per browser).
+   - The file is applied ONLY when:
+       (a) it is NEWER than the version already applied, AND
+       (b) the local catalogue was NOT edited after the last apply.
+     → an old / cached / stale file can NEVER wipe your prepared list.
+   - Self-heal: applied version == file version but data differs
+     (broken state from older versions) → re-apply from the file.
+   - Quota-safe: if localStorage is full, images are stripped so the
+     catalogue still loads (siddham_storage_limited = 1).
    ============================================================ */
 const DATA_FILE_VERSION_KEY = 'siddham_data_version';
+const DATA_FILE_FP_KEY      = 'siddham_data_fp';
+const PRODUCTS_EDIT_KEY     = 'siddham_products_edit';
+const FORCE_RESYNC_KEY      = 'siddham_force_resync';
+
+/* Called by admin after ANY content save → marks the local catalogue as edited */
+function markLocalEdit() {
+  try { DB.set(PRODUCTS_EDIT_KEY, Date.now()); } catch (e) {}
+}
+
+/* Are there local changes that have not been published to data.json? */
+function hasUnpublishedChanges() {
+  const editTs = DB.get(PRODUCTS_EDIT_KEY, 0) || 0;
+  const applied = DB.get(DATA_FILE_VERSION_KEY, null);
+  return applied !== null && editTs > applied;
+}
+
+/* Quick fingerprint of a product list (same fields the file controls) */
+function productsFingerprint(arr) {
+  const s = JSON.stringify((arr || []).map(p => [
+    p.id, p.nameSi, p.nameEn, p.price, p.stock, p.sold,
+    (p.variants || []).map(v => v.label + '|' + v.price + '|' + v.weightG)
+  ]));
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
 
 const dataSyncCbs = [];
 let dataSynced = false;
@@ -354,57 +386,91 @@ function fireDataSync() {
 function getDataFileUrl() {
   return (window.ASSET_BASE || '') + 'data/site-data.json';
 }
+
+function applyDataFile(j) {
+  const ver = j.version || 1;
+  const applied = DB.get(DATA_FILE_VERSION_KEY, null);
+  const localFp = DB.get(DATA_FILE_FP_KEY, null);
+  const fp = productsFingerprint(j.products);
+  const editTs = DB.get(PRODUCTS_EDIT_KEY, 0) || 0;
+  const force = DB.get(FORCE_RESYNC_KEY, 0) === 1;
+  if (force) DB.remove(FORCE_RESYNC_KEY);
+
+  const fileNewer = applied === null || ver > applied;
+  const sameVerBroken = applied !== null && ver === applied && localFp !== null && fp !== localFp;
+  if (!force && !fileNewer && !sameVerBroken) return; // nothing to do
+
+  // Local draft is newer than the file → NEVER clobber it; just advance the pointer
+  if (!force && fileNewer && editTs > applied) {
+    DB.set(DATA_FILE_VERSION_KEY, ver);
+    DB.set(DATA_FILE_FP_KEY, fp);
+    return;
+  }
+
+  // Build merged lists (file wins for same ids; this browser's extras are kept)
+  let prodList = null;
+  if (Array.isArray(j.products) && j.products.length) {
+    const fileIds = new Set(j.products.map(p => p.id));
+    const local = DB.get(DB.keys.products, []);
+    const extras = Array.isArray(local) ? local.filter(p => p && !fileIds.has(p.id)) : [];
+    prodList = migrateProducts(j.products.concat(extras));
+  }
+  let catsList = null;
+  if (Array.isArray(j.categories) && j.categories.length) {
+    const fileIds = new Set(j.categories.map(c => c.id));
+    const local = DB.get(DB.keys.categories, []);
+    const extras = Array.isArray(local) ? local.filter(c => c && !fileIds.has(c.id)) : [];
+    catsList = j.categories.concat(extras);
+  }
+  let distList = null;
+  if (Array.isArray(j.districts) && j.districts.length) {
+    const fileKeys = new Set(j.districts.map(r => r.district + '|' + r.city));
+    const local = DB.get(DB.keys.districts, []);
+    const extras = Array.isArray(local) ? local.filter(r => r && !fileKeys.has(r.district + '|' + r.city)) : [];
+    distList = j.districts.concat(extras);
+  }
+
+  const saveAll = (prodArray) => {
+    if (prodArray) DB.set(DB.keys.products, prodArray);
+    if (catsList) DB.set(DB.keys.categories, catsList);
+    if (distList) DB.set(DB.keys.districts, distList);
+    if (j.settings) {
+      const local = DB.get(DB.keys.settings, {});
+      const merged = Object.assign({}, DEFAULT_SETTINGS, j.settings);
+      if (local.password) merged.password = local.password; // never override password from file
+      if (!merged.commentsBinId && local.commentsBinId) merged.commentsBinId = local.commentsBinId;
+      if (!merged.commentsApiKey && local.commentsApiKey) merged.commentsApiKey = local.commentsApiKey;
+      DB.set(DB.keys.settings, merged);
+    }
+    if (j.branding) {
+      const local = DB.get(DB.keys.branding, {});
+      const nb = Object.assign({}, DEFAULT_BRANDING, j.branding);
+      Object.keys(nb).forEach(k => { if (!nb[k] && local[k]) nb[k] = local[k]; });
+      DB.set(DB.keys.branding, nb);
+    }
+  };
+
+  try {
+    saveAll(prodList);
+    DB.remove('siddham_storage_limited');
+  } catch (e) {
+    // localStorage full → retry without images so the catalogue still works
+    try { DB.set('siddham_storage_limited', 1); } catch (e2) {}
+    try {
+      if (prodList) saveAll(prodList.map(p => Object.assign({}, p, { img: '' })));
+      else saveAll(null);
+    } catch (e2) { /* give up quietly */ }
+  }
+  DB.set(DATA_FILE_VERSION_KEY, ver);
+  DB.set(DATA_FILE_FP_KEY, fp);
+}
+
 function syncFromDataJson() {
   if (typeof fetch !== 'function') { fireDataSync(); return; }
   fetch(getDataFileUrl())
     .then(r => r.ok ? r.json() : null)
     .catch(() => null)
-    .then(j => {
-      if (j && typeof j === 'object') {
-        const ver = j.version || 1;
-        const cur = DB.get(DATA_FILE_VERSION_KEY, null);
-        if (cur === null || cur !== ver) {
-          /* --- Products: file items WINS, but keep this browser's own additions
-                 (items whose id is not in the file) so admin-added items are never lost --- */
-          if (Array.isArray(j.products) && j.products.length) {
-            const fileIds = new Set(j.products.map(p => p.id));
-            const local = DB.get(DB.keys.products, []);
-            const extras = Array.isArray(local) ? local.filter(p => p && !fileIds.has(p.id)) : [];
-            DB.set(DB.keys.products, migrateProducts(j.products.concat(extras)));
-          }
-          /* --- Categories: same merge (keep admin-created ones) --- */
-          if (Array.isArray(j.categories) && j.categories.length) {
-            const fileIds = new Set(j.categories.map(c => c.id));
-            const local = DB.get(DB.keys.categories, []);
-            const extras = Array.isArray(local) ? local.filter(c => c && !fileIds.has(c.id)) : [];
-            DB.set(DB.keys.categories, j.categories.concat(extras));
-          }
-          /* --- Districts: keep local-only rows --- */
-          if (Array.isArray(j.districts) && j.districts.length) {
-            const fileKeys = new Set(j.districts.map(r => r.district + '|' + r.city));
-            const local = DB.get(DB.keys.districts, []);
-            const extras = Array.isArray(local) ? local.filter(r => r && !fileKeys.has(r.district + '|' + r.city)) : [];
-            DB.set(DB.keys.districts, j.districts.concat(extras));
-          }
-          if (j.settings) {
-            const local = DB.get(DB.keys.settings, {});
-            const merged = Object.assign({}, DEFAULT_SETTINGS, j.settings);
-            if (local.password) merged.password = local.password; // never override password from file
-            // keep local cloud keys if file has none
-            if (!merged.commentsBinId && local.commentsBinId) merged.commentsBinId = local.commentsBinId;
-            if (!merged.commentsApiKey && local.commentsApiKey) merged.commentsApiKey = local.commentsApiKey;
-            DB.set(DB.keys.settings, merged);
-          }
-          if (j.branding) {
-            const local = DB.get(DB.keys.branding, {});
-            const nb = Object.assign({}, DEFAULT_BRANDING, j.branding);
-            Object.keys(nb).forEach(k => { if (!nb[k] && local[k]) nb[k] = local[k]; });
-            DB.set(DB.keys.branding, nb);
-          }
-          DB.set(DATA_FILE_VERSION_KEY, ver);
-        }
-      }
-    })
+    .then(j => { if (j && typeof j === 'object') applyDataFile(j); })
     .finally(fireDataSync);
 }
 syncFromDataJson();
