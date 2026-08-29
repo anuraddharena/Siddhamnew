@@ -125,8 +125,10 @@
           <input type="number" id="pStock" placeholder="50" min="0" value="50">
         </div>
         <div>
-          <label>Image (upload)</label>
+          <label>Image (upload — auto compressed)</label>
           <input type="file" id="pImg" accept="image/*">
+          <div id="pImgPrev"></div>
+          <button type="button" id="removeImgBtn" class="secondary-btn" style="display:none;margin-top:6px">✕ Remove Image</button>
         </div>
       </div>
       <label>Description</label>
@@ -135,6 +137,7 @@
       <button type="button" class="secondary-btn" id="cancelEditBtn" style="display:none">Cancel Edit</button>
     </form>
 
+    <p id="storageInfo" class="hint"></p>
     <h3>Existing Products</h3>
     <div id="adminProductList" class="admin-prod-list"></div>
   </section>
