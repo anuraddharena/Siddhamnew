@@ -119,6 +119,10 @@ DEFAULT_PRODUCTS.forEach(p => { p.sold = DEMO_SOLD[p.id] || 0; });
 const DEMO_STOCK = { 1: 40, 2: 35, 3: 25, 4: 30, 5: 20, 6: 12, 7: 16, 8: 28, 9: 22, 10: 19, 11: 14, 12: 24, 13: 30, 14: 18, 15: 38, 16: 26, 17: 0, 18: 15, 19: 25 };
 DEFAULT_PRODUCTS.forEach(p => { p.stock = DEMO_STOCK[p.id] !== undefined ? DEMO_STOCK[p.id] : 50; });
 
+/* Ids of the built-in demo items — used to PRUNE stale defaults that the
+   published catalogue does NOT contain (e.g. ids 4,5,6,7,12,13,14). */
+const DEFAULT_PRODUCT_IDS = new Set(DEFAULT_PRODUCTS.map(p => p.id));
+
 /* Make sure a product list always has sold + stock (and variants if missing) */
 function migrateProducts(list) {
   list.forEach(p => {
@@ -383,11 +387,43 @@ function fireDataSync() {
   dataSynced = true;
   dataSyncCbs.splice(0).forEach(fn => { try { fn(); } catch (e) {} });
 }
-function getDataFileUrl() {
-  return (window.ASSET_BASE || '') + 'data/site-data.json';
+/* Try the new catalogue file first, then fall back to the old name */
+function fetchDataFile() {
+  if (typeof fetch !== 'function') return Promise.resolve(null);
+  const urls = [
+    (window.ASSET_BASE || '') + 'data/catalog.json',
+    (window.ASSET_BASE || '') + 'data/site-data.json'
+  ];
+  let i = 0;
+  const next = () => {
+    if (i >= urls.length) return Promise.resolve(null);
+    const u = urls[i++];
+    return fetch(u)
+      .then(r => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then(j => j || next());
+  };
+  return next();
+}
+
+/* Remove built-in demo items that the published file does NOT contain.
+   (They only exist because localStorage had old defaults — the admin
+   removed them from the real catalogue.) Runs on EVERY successful fetch,
+   even when the version is unchanged, so it self-heals any browser. */
+function pruneStaleDefaults(j) {
+  if (!j || !Array.isArray(j.products)) return false;
+  const fileIds = new Set(j.products.map(p => p.id));
+  const local = DB.get(DB.keys.products, []);
+  if (!Array.isArray(local) || !local.length) return false;
+  const kept = local.filter(p => p && (fileIds.has(p.id) || !DEFAULT_PRODUCT_IDS.has(p.id)));
+  if (kept.length === local.length) return false;
+  try { DB.set(DB.keys.products, kept); return true; } catch (e) {}
+  return false;
 }
 
 function applyDataFile(j) {
+  if (!j || typeof j !== 'object') return;
+  pruneStaleDefaults(j); // always drop stale default items first
   const ver = j.version || 1;
   const applied = DB.get(DATA_FILE_VERSION_KEY, null);
   const localFp = DB.get(DATA_FILE_FP_KEY, null);
@@ -407,12 +443,12 @@ function applyDataFile(j) {
     return;
   }
 
-  // Build merged lists (file wins for same ids; this browser's extras are kept)
+  // Build merged lists (file wins for same ids; genuinely admin-added items kept)
   let prodList = null;
   if (Array.isArray(j.products) && j.products.length) {
     const fileIds = new Set(j.products.map(p => p.id));
     const local = DB.get(DB.keys.products, []);
-    const extras = Array.isArray(local) ? local.filter(p => p && !fileIds.has(p.id)) : [];
+    const extras = Array.isArray(local) ? local.filter(p => p && !fileIds.has(p.id) && !DEFAULT_PRODUCT_IDS.has(p.id)) : [];
     prodList = migrateProducts(j.products.concat(extras));
   }
   let catsList = null;
@@ -466,10 +502,7 @@ function applyDataFile(j) {
 }
 
 function syncFromDataJson() {
-  if (typeof fetch !== 'function') { fireDataSync(); return; }
-  fetch(getDataFileUrl())
-    .then(r => r.ok ? r.json() : null)
-    .catch(() => null)
+  fetchDataFile()
     .then(j => { if (j && typeof j === 'object') applyDataFile(j); })
     .finally(fireDataSync);
 }

@@ -128,7 +128,7 @@ function loadPublishBanner() {
   if (typeof hasUnpublishedChanges === 'function' && hasUnpublishedChanges()) {
     html += `<div style="padding:10px 14px;background:#fff8e1;border:1px solid #f0c36d;border-radius:8px;margin-bottom:12px">
       ⚠️ <b>ඔයාගේ අලුත් වෙනස්කම් තවම publish වෙලා නැහැ.</b> Customers ට පේන්න:
-      Settings → <b>⬇️ Download data.json</b> → GitHub repo එකේ <code>data/site-data.json</code> replace කරන්න.
+      Settings → <b>⬇️ Download data.json</b> → GitHub repo එකේ <code>data/catalog.json</code> විදිහට upload කරන්න.
     </div>`;
   }
   if (DB.get('siddham_storage_limited', 0) === 1) {
@@ -637,9 +637,9 @@ function downloadDataJson() {
   const blob = new Blob([JSON.stringify(j, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'site-data.json';
+  a.download = 'catalog.json';
   a.click();
-  alert('✓ Downloaded!\n\nGitHub repo → data/site-data.json replace කරන්න. ඊට පස්සේ site එකේ හැම කෙනෙක්ටම අලුත් data පේනවා.');
+  alert('✓ Downloaded!\n\nGitHub repo → data/catalog.json විදිහට upload කරන්න (replace/ලෙස). ඊට පස්සේ site එකේ හැම කෙනෙක්ටම අලුත් data පේනවා.');
 }
 
 /* ---------- BRANDING ---------- */
