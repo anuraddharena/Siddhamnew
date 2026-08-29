@@ -119,6 +119,9 @@ function loadAdminUI() {
   wireForms();
 }
 
+// product form: user asked to remove the current image
+let imgRemoveFlag = false;
+
 /* ---------- CATEGORIES ---------- */
 function makeCatId(nameEn, cats) {
   let id = (nameEn || 'category').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'category';
@@ -395,6 +398,11 @@ function visitorCalc() {
 function loadProducts() {
   const products = DB.get(DB.keys.products, []);
   const list = document.getElementById('adminProductList');
+  const si = document.getElementById('storageInfo');
+  if (si) {
+    const kb = storageUsedKB();
+    si.innerHTML = `💾 Browser storage භාවිතය: <b style="color:${kb > 3500 ? '#c0392b' : '#1e8449'}">${kb} KB</b> (~5,000 KB limit) — images auto-compress වෙනවා, ඒත් පරණ ලොකු images තියෙනවා නම් Edit → ✕ Remove Image කරන්න.`;
+  }
   list.innerHTML = '';
   products.forEach(p => {
     const div = document.createElement('div');
@@ -432,9 +440,20 @@ function editProduct(id) {
   document.getElementById('pSold').value = p.sold || 0;
   document.getElementById('pStock').value = (p.stock === undefined) ? 50 : p.stock;
   document.getElementById('pDesc').value = p.desc || '';
+  imgRemoveFlag = false;
+  clearImgPrev(p.img);
   document.getElementById('saveProductBtn').textContent = 'Update Product';
   document.getElementById('cancelEditBtn').style.display = 'inline-block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* Preview the product image (or clear it) */
+function clearImgPrev(url) {
+  const box = document.getElementById('pImgPrev');
+  const rmBtn = document.getElementById('removeImgBtn');
+  if (!box) return;
+  box.innerHTML = url ? `<img src="${url}" style="max-width:120px;max-height:90px;border-radius:6px;margin-top:8px;border:1px solid var(--line)">` : '';
+  if (rmBtn) rmBtn.style.display = url ? 'inline-block' : 'none';
 }
 
 function deleteProduct(id) {
@@ -453,6 +472,62 @@ function fileToDataURL(file) {
     r.onerror = rej;
     r.readAsDataURL(file);
   });
+}
+
+/* ---------- Image upload with AUTO-COMPRESSION ----------
+   Big photos are resized (max 900px) + compressed to JPEG so the
+   browser's localStorage never overflows. PNG logos keep transparency.
+   If anything fails, the original file is used as fallback. */
+function compressImage(file, maxSide, quality, keepPng) {
+  return new Promise(resolve => {
+    const original = () => fileToDataURL(file).then(resolve).catch(() => resolve(''));
+    if (!file || !/^image\//.test(file.type)) return original();
+    if (file.size <= 150 * 1024) return original(); // small file — no need to compress
+    let img;
+    try { img = new Image(); } catch (e) { return original(); }
+    const done = () => {
+      try { if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src); } catch (e) {}
+    };
+    img.onload = () => {
+      try {
+        let w = img.naturalWidth || 800, h = img.naturalHeight || 800;
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        if (!ctx) { done(); return original(); }
+        ctx.drawImage(img, 0, 0, w, h);
+        const isPng = !!keepPng && file.type === 'image/png';
+        const out = c.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality);
+        done();
+        resolve(out);
+      } catch (e) { done(); original(); }
+    };
+    img.onerror = () => { done(); original(); };
+    try { img.src = URL.createObjectURL(file); }
+    catch (e) { done(); original(); }
+  });
+}
+
+/* ---------- Storage safety ---------- */
+function storageUsedKB() {
+  let b = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      b += (k.length + (localStorage.getItem(k) || '').length) * 2;
+    }
+  } catch (e) {}
+  return Math.round(b / 1024);
+}
+function safeSet(key, val, what) {
+  try { DB.set(key, val); return true; }
+  catch (e) {
+    alert(`⚠️ Browser storage එක පිරිලා! ${what || 'Data'} save කරන්න බැරි වුණා.\n\nපරණ product images ටික අයින් කරලා (List → Edit → ✕ Remove Image → Save) ආයේ try කරන්න.`);
+    return false;
+  }
 }
 
 /* ---------- SIZE VARIANTS editor ---------- */
@@ -565,7 +640,7 @@ function wireForms() {
     const id = document.getElementById('editId').value;
     const file = document.getElementById('pImg').files[0];
     let img = '';
-    if (file) img = await fileToDataURL(file);
+    if (file) img = await compressImage(file, 900, 0.82, false); // auto-compress!
 
     const variants = collectVarRows();
     if (!variants.length) { alert('අවම වශයෙන් එක size එකක්වත් දාන්න (label + price + weight)'); return; }
@@ -590,6 +665,7 @@ function wireForms() {
         desc: document.getElementById('pDesc').value,
       });
       if (img) p.img = img;
+      else if (imgRemoveFlag) delete p.img;
     } else {
       const newId = Math.max(0, ...products.map(p => p.id)) + 1;
       products.push({
@@ -607,9 +683,12 @@ function wireForms() {
         img
       });
     }
-    DB.set(DB.keys.products, products);
+    if (!safeSet(DB.keys.products, products, 'Product')) return;
     e.target.reset();
     setVarRows([{}]);
+    imgRemoveFlag = false;
+    document.getElementById('pImgPrev').innerHTML = '';
+    document.getElementById('removeImgBtn').style.display = 'none';
     document.getElementById('editId').value = '';
     document.getElementById('saveProductBtn').textContent = 'Add Product';
     document.getElementById('cancelEditBtn').style.display = 'none';
@@ -621,9 +700,27 @@ function wireForms() {
   document.getElementById('cancelEditBtn').addEventListener('click', () => {
     document.getElementById('addProductForm').reset();
     setVarRows([{}]);
+    imgRemoveFlag = false;
+    clearImgPrev('');
     document.getElementById('editId').value = '';
     document.getElementById('saveProductBtn').textContent = 'Add Product';
     document.getElementById('cancelEditBtn').style.display = 'none';
+  });
+
+  // Image preview + remove buttons
+  document.getElementById('pImg').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    imgRemoveFlag = false;
+    const url = await fileToDataURL(f);
+    clearImgPrev(url);
+    document.getElementById('removeImgBtn').style.display = 'none';
+  });
+  document.getElementById('removeImgBtn').addEventListener('click', () => {
+    imgRemoveFlag = true;
+    document.getElementById('pImg').value = '';
+    clearImgPrev('');
+    alert('Save කරාම image එක අයින් වෙනවා. ("Save" click කරන්න)');
   });
 
   // Size variant rows: add + remove
@@ -795,16 +892,18 @@ function wireForms() {
     }
   });
 
-  // Branding
+  // Branding (logo keeps PNG transparency; hero compressed to JPEG)
   document.getElementById('logoUp').addEventListener('change', async e => {
     if (!e.target.files[0]) return;
-    const url = await fileToDataURL(e.target.files[0]);
+    const url = await compressImage(e.target.files[0], 500, 0.85, true);
+    if (!url) return;
     document.getElementById('logoPrev').src = url;
     document.getElementById('logoPrev').dataset.new = url;
   });
   document.getElementById('heroUp').addEventListener('change', async e => {
     if (!e.target.files[0]) return;
-    const url = await fileToDataURL(e.target.files[0]);
+    const url = await compressImage(e.target.files[0], 1400, 0.8, false);
+    if (!url) return;
     document.getElementById('heroPrev').src = url;
     document.getElementById('heroPrev').dataset.new = url;
   });
@@ -821,7 +920,7 @@ function wireForms() {
     const newHero = document.getElementById('heroPrev').dataset.new;
     if (newLogo) b.logo = newLogo;
     if (newHero) b.hero = newHero;
-    DB.set(DB.keys.branding, b);
+    if (!safeSet(DB.keys.branding, b, 'Branding')) return;
     alert('Branding saved');
   });
 }
