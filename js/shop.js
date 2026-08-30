@@ -640,6 +640,20 @@ function saveOrder(order) {
   DB.set('siddham_orders', orders);
 }
 
+/* Clear the cart IMMEDIATELY after an order is submitted.
+   (The order is already saved to siddham_orders BEFORE the WhatsApp /
+   email app opens, so clearing is always safe — no confirm popup that
+   could be missed on phones.) */
+function clearCartAfterOrder() {
+  const lang = DB.get(DB.keys.lang, 'si');
+  DB.set(DB.keys.cart, []);
+  updateCartCount();
+  renderCart();
+  closeCheckout();
+  closeCart();
+  showToast(lang === 'si' ? '✅ ඇණවුම යවන ලදී! කරත්තය හිස් කළා' : '✅ Order sent! Cart cleared');
+}
+
 function submitViaWhatsApp(formData) {
   const s = DB.get(DB.keys.settings, {});
   const order = buildOrder(formData);
@@ -647,7 +661,7 @@ function submitViaWhatsApp(formData) {
   const msg = buildOrderMessage(order);
   const url = `https://wa.me/${s.waNumber}?text=${encodeURIComponent(msg)}`;
   window.open(url, '_blank');
-  clearCartAfterOrder();
+  setTimeout(clearCartAfterOrder, 100); // tiny delay so the tab opens smoothly
 }
 
 function submitViaEmail(formData) {
@@ -658,19 +672,7 @@ function submitViaEmail(formData) {
   const body = buildOrderMessage(order).replace(/\*/g, '');
   const url = `mailto:${s.orderEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   window.location.href = url;
-  clearCartAfterOrder();
-}
-
-function clearCartAfterOrder() {
-  setTimeout(() => {
-    if (confirm('Was your order sent successfully? Click OK to clear the cart.')) {
-      DB.set(DB.keys.cart, []);
-      updateCartCount();
-      renderCart();
-      closeCheckout();
-      closeCart();
-    }
-  }, 1500);
+  setTimeout(clearCartAfterOrder, 100);
 }
 
 /* ---------- Wire everything ---------- */
